@@ -11,6 +11,7 @@ namespace TsRandomizer.Randomisation
 	{
 		public static ItemLocationMap Randomize(Seed seed, FillingMethod fillingMethod, GameSave saveGame, bool progressionOnly = false)
 		{
+			if(seed.Options.DamageRando) ElementManager.PopulateElementLookups(seed);
 			var unlockingMap = new ItemUnlockingMap(seed);
 			var itemInfoProvider = new ItemInfoProvider(seed.Options, unlockingMap);
 

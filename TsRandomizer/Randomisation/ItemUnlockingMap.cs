@@ -44,16 +44,33 @@ namespace TsRandomizer.Randomisation
 		public ItemUnlockingMap(Seed seed)
 		{
 			var random = new Random((int)seed.Id);
-
+			LookupDictionairy<ItemIdentifier, UnlockingSpecification> fireSpecifications;
+			if(seed.Options.DamageRando)
+            {
+				fireSpecifications = new LookupDictionairy<ItemIdentifier, UnlockingSpecification>(10, s => s.Item)
+				{
+					new UnlockingSpecification(new ItemIdentifier(EInventoryOrbType.Flame, EOrbSlot.Passive), R.AntiWeed),
+				};
+                foreach (var fireSource in ElementManager.GetFireSources())
+                {
+					if(!fireSpecifications.Any(s => s.Item.OrbSlot == fireSource.Slot && s.Item.OrbType == fireSource.Type))
+						fireSpecifications.Add(new UnlockingSpecification(new ItemIdentifier(fireSource.Type, fireSource.Slot), R.AntiWeed));
+                }
+            }
+			else
+            {
+				fireSpecifications = new LookupDictionairy<ItemIdentifier, UnlockingSpecification>(4, s => s.Item) {
+					new UnlockingSpecification(new ItemIdentifier(EInventoryOrbType.Flame, EOrbSlot.Passive), R.AntiWeed),
+					new UnlockingSpecification(new ItemIdentifier(EInventoryOrbType.Flame, EOrbSlot.Melee), R.AntiWeed),
+					new UnlockingSpecification(new ItemIdentifier(EInventoryOrbType.Flame, EOrbSlot.Spell), R.AntiWeed),
+					new	UnlockingSpecification(new ItemIdentifier(EInventoryOrbType.Book, EOrbSlot.Spell), R.AntiWeed),
+				};
+            }
 			unlockingSpecifications = new LookupDictionairy<ItemIdentifier, UnlockingSpecification>(26, s => s.Item)
 			{
 				new UnlockingSpecification(new ItemIdentifier(EInventoryRelicType.TimespinnerWheel), R.TimespinnerWheel, R.TimeStop),
 				new UnlockingSpecification(new ItemIdentifier(EInventoryRelicType.DoubleJump), R.DoubleJump, R.TimeStop),
 				new UnlockingSpecification(new ItemIdentifier(EInventoryRelicType.Dash), R.ForwardDash),
-				new UnlockingSpecification(new ItemIdentifier(EInventoryOrbType.Flame, EOrbSlot.Passive), R.AntiWeed),
-				new UnlockingSpecification(new ItemIdentifier(EInventoryOrbType.Flame, EOrbSlot.Melee), R.AntiWeed),
-				new UnlockingSpecification(new ItemIdentifier(EInventoryOrbType.Flame, EOrbSlot.Spell), R.AntiWeed),
-				new UnlockingSpecification(new ItemIdentifier(EInventoryOrbType.Book, EOrbSlot.Spell), R.AntiWeed),
 				new UnlockingSpecification(new ItemIdentifier(EInventoryRelicType.ScienceKeycardA), R.CardA, R.CardB | R.CardC | R.CardD),
 				new UnlockingSpecification(new ItemIdentifier(EInventoryRelicType.ScienceKeycardB), R.CardB, R.CardC | R.CardD),
 				new UnlockingSpecification(new ItemIdentifier(EInventoryRelicType.ScienceKeycardC), R.CardC, R.CardD),
@@ -76,6 +93,12 @@ namespace TsRandomizer.Randomisation
 				new UnlockingSpecification(new ItemIdentifier(EInventoryFamiliarType.Kobo), R.Kobo),
 				new UnlockingSpecification(new ItemIdentifier(EInventoryFamiliarType.MerchantCrow), R.MerchantCrow),
 			};
+
+            foreach (var spec in fireSpecifications)
+            {
+				if(!unlockingSpecifications.Any(s => s.Item == spec.Item))
+					unlockingSpecifications.Add(spec);
+            }
 
 			if (seed.Options.SpecificKeys)
 				MakeKeyCardUnlocksCardSpecific();

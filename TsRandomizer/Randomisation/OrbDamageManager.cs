@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Timespinner.Core;
 using Timespinner.GameAbstractions.Inventory;
 using Timespinner.GameAbstractions.Saving;
 using TsRandomizer.Extensions;
@@ -80,6 +81,7 @@ namespace TsRandomizer.Randomisation
 					break;
 				case int o when (o >= 5 && o <= 7): 
 					newDamage = options.MidValue;
+					OverrideOrbNames(orbType, "");
 					break;
 				default: 
 					newDamage = options.MaxValue;
@@ -102,12 +104,17 @@ namespace TsRandomizer.Randomisation
 			string actualOrbName = new InventoryOrb(orbType).Name;
 			string actualSpellName = new InventoryOrb(orbType).AsDynamic().SpellName;
 			string actualRingName = new InventoryOrb(orbType).AsDynamic().PassiveName;
-			if(!actualOrbName.EndsWith(suffix))
-				Localizer.OverrideKey(locKey, $"{actualOrbName} {suffix}");
-			if(!actualSpellName.EndsWith(suffix))
-				Localizer.OverrideKey(spellLocKey, $"{actualSpellName} {suffix}");
-			if(!actualRingName.EndsWith(suffix))
-				Localizer.OverrideKey(ringLocKey, $"{actualRingName} {suffix}");
+
+			string orbElements = ElementManager.GetElementString(EOrbSlot.Melee, orbType);
+			string spellElements = ElementManager.GetElementString(EOrbSlot.Spell, orbType);
+			string ringElements = orbType == EInventoryOrbType.Flame 
+				? "(Fire)" 
+				: ElementManager.GetElementString(EOrbSlot.Passive, orbType);
+
+			Localizer.OverrideKey(locKey, $"{actualOrbName} {orbElements} {suffix}");
+			Localizer.OverrideKey(spellLocKey, $"{actualSpellName} {spellElements} {suffix}");
+			Localizer.OverrideKey(ringLocKey, $"{actualRingName} {ringElements} {suffix}");
+
 		}
 
 		public static void PopulateOrbLookups(GameSave save)
@@ -120,11 +127,11 @@ namespace TsRandomizer.Randomisation
 				RandomizeOrb(orbType, damageSelection);
 				var orbInventory = save.Inventory.OrbInventory.Inventory;
 				if (orbInventory.ContainsKey((int)orbType))
-					SetOrbBaseDamage(orbInventory[(int)orbType], save);
+					SetOrbBaseDamage(orbInventory[(int)orbType]);
 			}
         }
 
-		public static void SetOrbBaseDamage(InventoryOrb orb, GameSave save)
+		public static void SetOrbBaseDamage(InventoryOrb orb)
 		{
 			if(OrbDamageLookup.TryGetValue((int)orb.OrbType, out int storedOrbDamage))
             {

@@ -35,6 +35,7 @@ namespace TsRandomizer.LevelObjects
 		static readonly Dictionary<Type, Type> RegisteredTypes = new Dictionary<Type, Type>(); //ObjectType, EventHandler
 		static readonly Dictionary<EEventTileType, AlwaysSpawnAttribute> AlwaysSpawningEventTypes = new Dictionary<EEventTileType, AlwaysSpawnAttribute>(); //EEventTileType, SpawnerMethod
 		static readonly List<int> KnownItemIds = new List<int>();
+		static readonly List<int> KnownProjectileIds = new List<int>();
 		
 		public readonly dynamic Dynamic;
 
@@ -136,7 +137,21 @@ namespace TsRandomizer.LevelObjects
 			if (roomChanged || newItems.Any()) AwardFirstFrameItem(itemsDictionary, lunais);
 			
 			if(seedOptions.DamageRando)
+            {
 				UpdateOrbDamage(level.GameSave);
+				Dictionary<int, Projectile> projectiles = levelReflected._heroProjectiles;
+				var currentProjectileIds = projectiles.Keys;
+				var newProjectiles = currentProjectileIds
+					.Except(KnownProjectileIds)
+					.Select(p => projectiles[p])
+					.ToArray();
+				foreach(var projectile in newProjectiles)
+                {
+					ElementManager.SetElement(projectile);
+                }
+				KnownProjectileIds.Clear();
+				KnownProjectileIds.AddRange(currentProjectileIds);
+			}				
 
 			KnownItemIds.Clear();
 			KnownItemIds.AddRange(currentItemIds);
@@ -274,11 +289,11 @@ namespace TsRandomizer.LevelObjects
 			var orbB = inventory.OrbInventory.GetItem((int)currentOrbBType);
 			var spell = inventory.OrbInventory.GetItem((int)currentSpellType);
 			var ring = inventory.OrbInventory.GetItem((int)currentRingType);
-						
-			if (orbA != null) OrbDamageManager.SetOrbBaseDamage(orbA, save);
-			if (orbB != null) OrbDamageManager.SetOrbBaseDamage(orbB, save);
-			if (spell != null) OrbDamageManager.SetOrbBaseDamage(spell, save);
-			if (ring != null) OrbDamageManager.SetOrbBaseDamage(ring, save);
+
+			if (orbA != null) OrbDamageManager.SetOrbBaseDamage(orbA);
+			if (orbB != null) OrbDamageManager.SetOrbBaseDamage(orbB);
+			if (spell != null) OrbDamageManager.SetOrbBaseDamage(spell);
+			if (ring != null) OrbDamageManager.SetOrbBaseDamage(ring);
 		}
 
 		protected static ItemKey GetKey(Mobile obj)

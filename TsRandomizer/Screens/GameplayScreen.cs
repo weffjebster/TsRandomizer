@@ -79,7 +79,12 @@ namespace TsRandomizer.Screens
 
 			ItemManipulator.Initialize(ItemLocations);
 			if(seed.Value.Options.DamageRando)
+            {
 				OrbDamageManager.PopulateOrbLookups(Level.GameSave);
+				var what = ElementManager.ElementLookup;
+				var whom = ElementManager.OrbElementLookup;
+			}
+				
 
 			if (seedOptions.Archipelago)
 			{
