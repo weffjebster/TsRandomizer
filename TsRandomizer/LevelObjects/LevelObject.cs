@@ -138,7 +138,7 @@ namespace TsRandomizer.LevelObjects
 			
 			if(seedOptions.DamageRando)
             {
-				UpdateOrbDamage(level.GameSave);
+				UpdateOrbDamage(level);
 				Dictionary<int, Projectile> projectiles = levelReflected._heroProjectiles;
 				var currentProjectileIds = projectiles.Keys;
 				var newProjectiles = currentProjectileIds
@@ -151,7 +151,7 @@ namespace TsRandomizer.LevelObjects
                 }
 				KnownProjectileIds.Clear();
 				KnownProjectileIds.AddRange(currentProjectileIds);
-			}				
+			}
 
 			KnownItemIds.Clear();
 			KnownItemIds.AddRange(currentItemIds);
@@ -277,10 +277,9 @@ namespace TsRandomizer.LevelObjects
 				monster.MaxHP = 1;
 #endif
 		}
-
-		protected static void UpdateOrbDamage(GameSave save)
+		protected static void UpdateOrbDamage(Level level)
         {
-			var inventory = save.Inventory;
+			var inventory = level.GameSave.Inventory;
 			var currentOrbAType = inventory.EquippedMeleeOrbA;
 			var currentOrbBType = inventory.EquippedMeleeOrbB;
 			var currentSpellType = inventory.EquippedSpellOrb;
@@ -289,11 +288,13 @@ namespace TsRandomizer.LevelObjects
 			var orbB = inventory.OrbInventory.GetItem((int)currentOrbBType);
 			var spell = inventory.OrbInventory.GetItem((int)currentSpellType);
 			var ring = inventory.OrbInventory.GetItem((int)currentRingType);
+			var lunais = level.MainHero;
 
 			if (orbA != null) OrbDamageManager.SetOrbBaseDamage(orbA);
 			if (orbB != null) OrbDamageManager.SetOrbBaseDamage(orbB);
 			if (spell != null) OrbDamageManager.SetOrbBaseDamage(spell);
 			if (ring != null) OrbDamageManager.SetOrbBaseDamage(ring);
+			lunais.AsDynamic()._orbManager.RefreshStats(level.GameSave);
 		}
 
 		protected static ItemKey GetKey(Mobile obj)

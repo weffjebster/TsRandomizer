@@ -1,9 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Timespinner.Core;
 using Timespinner.GameAbstractions.Inventory;
 using Timespinner.GameAbstractions.Saving;
+using Timespinner.GameObjects.BaseClasses;
+using Timespinner.GameObjects.Heroes;
 using TsRandomizer.Extensions;
+using TsRandomizer.IntermediateObjects;
 
 namespace TsRandomizer.Randomisation
 {
@@ -136,7 +140,19 @@ namespace TsRandomizer.Randomisation
 			if(OrbDamageLookup.TryGetValue((int)orb.OrbType, out int storedOrbDamage))
             {
 				orb.BaseDamage = storedOrbDamage;
+				
 			}	
 		}
-	}
+
+        public static void SetProjectileDamage(Projectile projectile)
+        {
+			var orbType = ProjectileManager.DamagingProjectiles.SingleOrDefault(p => p.ProjectileType == projectile.GetType());
+			if(orbType != null)
+            {
+				var orb = projectile.Level.GameSave.Inventory.OrbInventory.Inventory[(int)orbType.OrbType];
+				SetOrbBaseDamage(orb);
+			}
+			
+        }
+    }
 }
