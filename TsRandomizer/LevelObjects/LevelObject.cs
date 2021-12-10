@@ -288,13 +288,11 @@ namespace TsRandomizer.LevelObjects
 			var orbB = inventory.OrbInventory.GetItem((int)currentOrbBType);
 			var spell = inventory.OrbInventory.GetItem((int)currentSpellType);
 			var ring = inventory.OrbInventory.GetItem((int)currentRingType);
-			var lunais = level.MainHero;
 
 			if (orbA != null) OrbDamageManager.SetOrbBaseDamage(orbA);
 			if (orbB != null) OrbDamageManager.SetOrbBaseDamage(orbB);
 			if (spell != null) OrbDamageManager.SetOrbBaseDamage(spell);
 			if (ring != null) OrbDamageManager.SetOrbBaseDamage(ring);
-			lunais.AsDynamic()._orbManager.RefreshStats(level.GameSave);
 		}
 
 		protected static ItemKey GetKey(Mobile obj)
