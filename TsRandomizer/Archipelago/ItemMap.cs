@@ -8,12 +8,12 @@ namespace TsRandomizer.Archipelago
 {
 	static class ItemMap
 	{
-		static readonly Dictionary<int, ItemIdentifier> MapItemIdToItemItemIdentifier;
-		static readonly Dictionary<ItemIdentifier, int> MapItemIdentifierToItemId;
+		static readonly Dictionary<long, ItemIdentifier> MapItemIdToItemItemIdentifier;
+		static readonly Dictionary<ItemIdentifier, long> MapItemIdentifierToItemId;
 
 		static ItemMap()
 		{
-			MapItemIdToItemItemIdentifier = new Dictionary<int, ItemIdentifier>(182) {
+			MapItemIdToItemItemIdentifier = new Dictionary<long, ItemIdentifier>(182) {
 				{1337000, new ItemIdentifier(EInventoryEquipmentType.EternalTiara)},
 				{1337001, new ItemIdentifier(EInventoryEquipmentType.SecurityVisor)},
 				{1337002, new ItemIdentifier(EInventoryEquipmentType.EngineerGoggles)},
@@ -199,19 +199,19 @@ namespace TsRandomizer.Archipelago
 				{1337249, new ItemIdentifier(EItemType.MaxSand)}
 			};
 
-			MapItemIdentifierToItemId = new Dictionary<ItemIdentifier, int>(MapItemIdToItemItemIdentifier.Count);
+			MapItemIdentifierToItemId = new Dictionary<ItemIdentifier, long>(MapItemIdToItemItemIdentifier.Count);
 
 			foreach (var kvp in MapItemIdToItemItemIdentifier)
 				MapItemIdentifierToItemId.Add(kvp.Value, kvp.Key);
 		}
 
-		public static int GetItemId(ItemIdentifier itemIdentifier) =>
+		public static long GetItemId(ItemIdentifier itemIdentifier) =>
 			MapItemIdentifierToItemId.TryGetValue(itemIdentifier, out var locationId)
 				? locationId
 				: throw new Exception("itemIdentifier does not map to Archipelago itemId");
 
 
-		public static ItemIdentifier GetItemIdentifier(int itemId) =>
+		public static ItemIdentifier GetItemIdentifier(long itemId) =>
 			MapItemIdToItemItemIdentifier.TryGetValue(itemId, out var key)
 				? key
 				: new ItemIdentifier(EInventoryUseItemType.EssenceCrystal);

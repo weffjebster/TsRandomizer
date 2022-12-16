@@ -35,16 +35,15 @@ namespace TsRandomizer.Randomisation.ItemPlacers
 				ItemInfoProvider.Get(EInventoryUseItemType.EssenceCrystal),
 			};
 
-			if(SeedOptions.StartWithJewelryBox)
+			if (SeedOptions.StartWithJewelryBox)
 				itemsToRemoveFromGame.Add(ItemInfoProvider.Get(EInventoryRelicType.JewelryBox));
-			if(SeedOptions.StartWithMeyef)
+			if (SeedOptions.StartWithMeyef)
 				itemsToRemoveFromGame.Add(ItemInfoProvider.Get(EInventoryFamiliarType.Meyef));
-			if(SeedOptions.StartWithTalaria)
+			if (SeedOptions.StartWithTalaria)
 				itemsToRemoveFromGame.Add(ItemInfoProvider.Get(EInventoryRelicType.Dash));
 
 			itemsToAddToGame = new[]
 			{
-				ItemInfoProvider.Get(EInventoryEquipmentType.SelenBangle),
 				ItemInfoProvider.Get(EInventoryEquipmentType.GlassPumpkin),
 				ItemInfoProvider.Get(EInventoryEquipmentType.EternalCoat),
 				ItemInfoProvider.Get(EInventoryEquipmentType.EternalTiara),
@@ -75,7 +74,7 @@ namespace TsRandomizer.Randomisation.ItemPlacers
 				ItemInfoProvider.Get(EInventoryUseItemType.ChaosHeal),
 				ItemInfoProvider.Get(EInventoryUseItemType.Antidote),
 				ItemInfoProvider.Get(EInventoryUseItemType.SandBottle),
-				ItemInfoProvider.Get(EInventoryUseItemType.HiSandBottle),
+				ItemInfoProvider.Get(EInventoryUseItemType.HiSandBottle)
 			};
 		}
 
@@ -85,7 +84,7 @@ namespace TsRandomizer.Randomisation.ItemPlacers
 		{
 			if (SeedOptions.StartWithTalaria || SeedOptions.Inverted)
 				GiveOrbsToMom(random, itemLocations, false);
-			else 
+			else
 				PlaceStarterProgressionItem(random, itemLocations);
 		}
 
@@ -136,11 +135,9 @@ namespace TsRandomizer.Randomisation.ItemPlacers
 			PutItemAtLocation(starterProgressionItem, location);
 		}
 
-		static bool ShouldGiveLightwall(Random random, ItemInfo starterProgressionItem)
-		{
-			return (starterProgressionItem.Identifier == new ItemIdentifier(EInventoryOrbType.Barrier, EOrbSlot.Spell))
-			       && random.Next(1, 5) == 1;
-		}
+		static bool ShouldGiveLightwall(Random random, ItemInfo starterProgressionItem) =>
+			(starterProgressionItem.Identifier == new ItemIdentifier(EInventoryOrbType.Barrier, EOrbSlot.Spell))
+				&& random.Next(1, 5) == 1;
 
 		protected void GiveOrbsToMom(Random random, ItemLocationMap itemLocations, bool useLightwallAsSpell)
 		{
@@ -158,10 +155,10 @@ namespace TsRandomizer.Randomisation.ItemPlacers
 			PutItemAtLocation(ItemInfoProvider.Get(meleeOrbType, EOrbSlot.Melee), itemLocations[ItemKey.TutorialMeleeOrb]);
 		}
 
-		protected void PlaceGassMaskInALegalSpot(Random random, ItemLocationMap itemLocations)
+		protected void PlaceGasMaskInALegalSpot(Random random, ItemLocationMap itemLocations)
 		{
-			var levelIdsToAvoid = new List<int>(3){ 1 };
-			R minimalMawRequirements = R.None;
+			var levelIdsToAvoid = new List<int>(3) { 1 };
+			var minimalMawRequirements = R.None;
 
 			if (!SeedOptions.Inverted)
 			{
@@ -176,7 +173,7 @@ namespace TsRandomizer.Randomisation.ItemPlacers
 
 				levelIdsToAvoid.Add(2); //library
 
-				if(UnlockingMap.PyramidKeysUnlock != R.GateSealedCaves)
+				if (UnlockingMap.PyramidKeysUnlock != R.GateSealedCaves)
 					levelIdsToAvoid.Add(9); //xarion skelleton
 			}
 			else
@@ -185,13 +182,13 @@ namespace TsRandomizer.Randomisation.ItemPlacers
 				minimalMawRequirements |= UnlockingMap.PyramidKeysUnlock;
 			}
 
-			var gassMaskLocation = itemLocations
-				.Where(l => !l.IsUsed 
-				            && !levelIdsToAvoid.Contains(l.Key.LevelId) 
-				            && l.Gate.CanBeOpenedWith(minimalMawRequirements))
+			var GasMaskLocation = itemLocations
+				.Where(l => !l.IsUsed
+							&& !levelIdsToAvoid.Contains(l.Key.LevelId)
+							&& l.Gate.CanBeOpenedWith(minimalMawRequirements))
 				.SelectRandom(random);
 
-			PutItemAtLocation(ItemInfoProvider.Get(EInventoryRelicType.AirMask), gassMaskLocation);
+			PutItemAtLocation(ItemInfoProvider.Get(EInventoryRelicType.AirMask), GasMaskLocation);
 		}
 
 		protected void FillRemainingChests(Random random, ItemLocationMap itemLocations)
@@ -220,16 +217,16 @@ namespace TsRandomizer.Randomisation.ItemPlacers
 		{
 			var progressiveItemLocationsPerType = itemLocations
 					.Where(l => l.ItemInfo.Unlocks == R.None)
-					.Where(l => l.ItemInfo is PogRessiveItemInfo)
+					.Where(l => l.ItemInfo is ProgressiveItemInfo)
 					.GroupBy(l => l.ItemInfo);
 
-			foreach (IGrouping<ItemInfo, ItemLocation> progressiveItemLocations in progressiveItemLocationsPerType)
+			foreach (var progressiveItemLocations in progressiveItemLocationsPerType)
 			{
 				RoomItemKey roomkey = null;
 
 				foreach (var itemLocation in progressiveItemLocations)
 				{
-					if(roomkey == null)
+					if (roomkey == null)
 						roomkey = itemLocation.Key.ToRoomItemKey();
 					else if (roomkey == itemLocation.Key.ToRoomItemKey())
 						SwapItemWithOtherNonProgressionItemsNotInRoom(random, itemLocation, itemLocations);
@@ -263,32 +260,29 @@ namespace TsRandomizer.Randomisation.ItemPlacers
 				.Where(l => l.DefaultItem != null)
 				.Select(l => l.DefaultItem)
 				.Where(i => i.Identifier.LootType != LootType.ConstOrb
-				            && i.Identifier.LootType != LootType.ConstFamiliar
-				            && !genericItems.Contains(i))
+							&& i.Identifier.LootType != LootType.ConstFamiliar
+							&& !genericItems.Contains(i))
 				.ToList();
 
 			AddOrbs(itemlist);
-			AddFamiliers(itemlist);
+			AddFamiliars(itemlist);
 			AddExtraItems(itemlist);
 
 			itemlist = itemlist
 				.Where(i => !alreadyAssingedItems.Contains(i)
-				            && !itemsToRemoveFromGame.Contains(i))
+							&& !itemsToRemoveFromGame.Contains(i))
 				.ToList();
 			return itemlist;
 		}
 
-		void AddExtraItems(List<ItemInfo> itemlist)
-		{
-			itemlist.AddRange(itemsToAddToGame);
-		}
+		void AddExtraItems(List<ItemInfo> itemlist) => itemlist.AddRange(itemsToAddToGame);
 
-		void AddFamiliers(List<ItemInfo> itemlist)
+		void AddFamiliars(List<ItemInfo> itemlist)
 		{
-			var allFamiliers = ((EInventoryFamiliarType[])Enum.GetValues(typeof(EInventoryFamiliarType)))
+			var allFamiliars = ((EInventoryFamiliarType[])Enum.GetValues(typeof(EInventoryFamiliarType)))
 				.Where(f => f != EInventoryFamiliarType.None);
 
-			itemlist.AddRange(allFamiliers.Select(familiar => ItemInfoProvider.Get(familiar)));
+			itemlist.AddRange(allFamiliars.Select(familiar => ItemInfoProvider.Get(familiar)));
 		}
 
 		void AddOrbs(List<ItemInfo> itemlist)

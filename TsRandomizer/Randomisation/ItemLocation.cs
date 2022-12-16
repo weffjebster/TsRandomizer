@@ -1,4 +1,5 @@
 ﻿using System;
+using Timespinner.GameAbstractions.Gameplay;
 using Timespinner.GameAbstractions.Saving;
 using TsRandomizer.IntermediateObjects;
 
@@ -16,7 +17,7 @@ namespace TsRandomizer.Randomisation
 		public string Name { get; internal set; }
 		public string AreaName { get; internal set; }
 		public bool IsPickedUp { get; internal set; }
-		public Action<ItemLocation> OnPickup { get; set; }
+		public Action<Level> OnPickup { get; set; }
 		public ItemInfo ItemInfo { get; internal set; }
 		public ItemInfo DefaultItem { get; internal set; }
 
@@ -43,28 +44,29 @@ namespace TsRandomizer.Randomisation
 
 		public void SetItem(ItemInfo item) => ItemInfo = item;
 
-		public virtual void SetPickedUp()
+		public virtual void SetPickedUp(Level level)
 		{
 			IsPickedUp = true;
 
-			gameSave.DataKeyBools[LootedItemDataString] = true;
+			if(gameSave != null)
+				gameSave.DataKeyBools[LootedItemDataString] = true;
 
-			if (ItemInfo is PogRessiveItemInfo progressiveItemInfo)
+			if (ItemInfo is ProgressiveItemInfo progressiveItemInfo)
 				progressiveItemInfo.Next();
 
-			OnPickup?.Invoke(this);
+			OnPickup?.Invoke(level);
 		}
 
 		public override string ToString() =>
 			$"{AreaName} {Name ?? Key.ToString()} [{ItemInfo}]";
 
-		public virtual void BsseOnGameSave(GameSave save)
+		public virtual void BaseOnGameSave(GameSave save)
 		{
 			gameSave = save;
 
 			IsPickedUp = gameSave.DataKeyBools.ContainsKey(LootedItemDataString);
 
-			if(IsPickedUp && ItemInfo is PogRessiveItemInfo progressiveItemInfo)
+			if(IsPickedUp && ItemInfo is ProgressiveItemInfo progressiveItemInfo)
 				progressiveItemInfo.Next();
 		}
 	}

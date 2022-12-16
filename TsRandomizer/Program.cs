@@ -17,7 +17,7 @@ namespace TsRandomizer
 		public static bool IsSteam;
 
 		[STAThread]
-		public static int Main(string[] args)
+		public static int Main()
 		{
 			var md5 = GetTimespinnerMd5Hash();
 
@@ -80,10 +80,9 @@ namespace TsRandomizer
 
 		static void StartTimeSpinner()
 		{
-			WithExceptionLogging(() =>
-			{
+			WithExceptionLogging(() => {
 				var platformHelper = IsSteam
-					? DummyPlatformHelper.CreateStreamInstance()
+					? DummyPlatformHelper.CreateSteamInstance()
 					: DummyPlatformHelper.CreateDrmFreeInstance();
 
 				new TimeSpinnerGame(platformHelper).Run();

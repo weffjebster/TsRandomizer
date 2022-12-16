@@ -5,6 +5,7 @@ using Timespinner.GameAbstractions.Saving;
 using Timespinner.GameObjects.BaseClasses;
 using TsRandomizer.IntermediateObjects;
 using TsRandomizer.Randomisation;
+using TsRandomizer.Settings;
 
 namespace TsRandomizer.Extensions
 {
@@ -14,14 +15,14 @@ namespace TsRandomizer.Extensions
 		const string SeedSaveFileKey = "TsRandomizerSeed";
 		const string FillMethodSaveFileKey = "TsRandomizerFillMethod";
 		const string MeleeOrbPrefixKey = "TsRandomizerHasMeleeOrb";
-		const string FamilierPrefixKey = "TsRandomizerHasFamiliar";
-
+		const string FamiliarPrefixKey = "TsRandomizerHasFamiliar";
+		const string SaveFileSettingKey = "TSRandomizerGameSettings";
 
 		internal static Seed? GetSeed(this GameSave gameSave)
 		{
 			if (gameSave.DataKeyStrings.TryGetValue(SeedSaveFileKey, out var seedString)
 				&& Seed.TryParse(seedString, out var seed))
-					return seed;
+				return seed;
 
 			return null;
 		}
@@ -34,39 +35,52 @@ namespace TsRandomizer.Extensions
 
 		internal static FillingMethod GetFillingMethod(this GameSave gameSave)
 		{
-			if(!gameSave.DataKeyStrings.ContainsKey(FillMethodSaveFileKey))
+			if (!gameSave.DataKeyStrings.ContainsKey(FillMethodSaveFileKey))
 				return FillingMethod.Forward;
 
-			if(!Enum.TryParse(gameSave.DataKeyStrings[FillMethodSaveFileKey], out FillingMethod fillingMethod))
+			if (!Enum.TryParse(gameSave.DataKeyStrings[FillMethodSaveFileKey], out FillingMethod fillingMethod))
 				throw new Exception("Cannot parse filling method");
 
 			return fillingMethod;
 		}
 
-		internal static void SetFillingMethod(this GameSave gameSave, FillingMethod fillingMethod)
-		{
+		internal static void SetFillingMethod(this GameSave gameSave, FillingMethod fillingMethod) => 
 			gameSave.DataKeyStrings[FillMethodSaveFileKey] = fillingMethod.ToString();
+
+
+		internal static SettingCollection GetSettings(this GameSave gameSave)
+		{
+			var json = gameSave.GetSaveString(SaveFileSettingKey);
+
+			var settings = string.IsNullOrEmpty(json)
+				? new SettingCollection()
+				: GameSettingsLoader.FromJson(json);
+
+			var seed = gameSave.GetSeed();
+
+			if (seed.HasValue && seed.Value.Options.Tournament)
+				settings.EnforceTournamentSettings();
+
+			return settings;
 		}
 
-		internal static bool HasMeleeOrb(this GameSave gameSave, EInventoryOrbType orbType)
+		internal static void SetSettings(this GameSave gameSave, SettingCollection settings)
 		{
-			return gameSave.DataKeyBools.ContainsKey(MeleeOrbPrefixKey + (int) orbType);
+			ExceptionLogger.SetSettingsContext(settings);
+			gameSave.SetValue(SaveFileSettingKey, GameSettingsLoader.ToJson(settings, false));
 		}
 
-		internal static bool HasFamiliar(this GameSave gameSave, EInventoryFamiliarType familiar)
-		{
-			return gameSave.DataKeyBools.ContainsKey(FamilierPrefixKey + (int)familiar);
-		}
+		internal static bool HasMeleeOrb(this GameSave gameSave, EInventoryOrbType orbType) => 
+			gameSave.DataKeyBools.ContainsKey(MeleeOrbPrefixKey + (int) orbType);
 
-		internal static bool HasRelic(this GameSave gameSave, EInventoryRelicType relic)
-		{
-			return gameSave.Inventory.RelicInventory.Inventory.ContainsKey((int)relic);
-		}
+		internal static bool HasFamiliar(this GameSave gameSave, EInventoryFamiliarType familiar) => 
+			gameSave.DataKeyBools.ContainsKey(FamiliarPrefixKey + (int)familiar);
 
-		internal static bool HasOrb(this GameSave gameSave, EInventoryOrbType orbType)
-		{
-			return gameSave.Inventory.OrbInventory.Inventory.ContainsKey((int) orbType);
-		}
+		internal static bool HasRelic(this GameSave gameSave, EInventoryRelicType relic) => 
+			gameSave.Inventory.RelicInventory.Inventory.ContainsKey((int)relic);
+
+		internal static bool HasOrb(this GameSave gameSave, EInventoryOrbType orbType) => 
+			gameSave.Inventory.OrbInventory.Inventory.ContainsKey((int) orbType);
 
 		internal static bool HasRing(this GameSave gameSave, EInventoryOrbType orbType)
 		{
@@ -87,7 +101,7 @@ namespace TsRandomizer.Extensions
 			switch (item.LootType)
 			{
 				case LootType.ConstEquipment:
-					return gameSave.Inventory.EquipmentInventory.Inventory.ContainsKey((int)item.Enquipment);
+					return gameSave.Inventory.EquipmentInventory.Inventory.ContainsKey((int)item.Equipment);
 				case LootType.ConstFamiliar:
 					return gameSave.Inventory.FamiliarInventory.Inventory.ContainsKey((int)item.Familiar);
 				case LootType.ConstRelic:
@@ -113,23 +127,33 @@ namespace TsRandomizer.Extensions
 			}
 		}
 
-		internal static bool HasCutsceneBeenTriggered(this GameSave gameSave, string cutsceneEnunMember)
+		internal static bool HasCutsceneBeenTriggered(this GameSave gameSave, string cutsceneEnumMember)
 		{
 			var cutsceneEnumType = TimeSpinnerType.Get("Timespinner.GameObjects.Events.Cutscene.CutsceneBase+ECutsceneType");
 
-			return gameSave.GetSaveBool($"Cutscene_{cutsceneEnumType.GetEnumValue(cutsceneEnunMember)}");
+			return gameSave.GetSaveBool($"Cutscene_{cutsceneEnumType.GetEnumValue(cutsceneEnumMember)}");
 		}
 
-		static void AddOrb(this GameSave gameSave, EInventoryOrbType orbType, EOrbSlot orbSlot)
+		internal static void SetCutsceneTriggered(this GameSave gameSave, string cutsceneEnumMember, bool hasBeenTriggered)
+		{
+			var cutsceneEnumType = TimeSpinnerType.Get("Timespinner.GameObjects.Events.Cutscene.CutsceneBase+ECutsceneType");
+
+			gameSave.SetValue($"Cutscene_{cutsceneEnumType.GetEnumValue(cutsceneEnumMember)}", hasBeenTriggered);
+		}
+
+		internal static void AddOrb(this GameSave gameSave, EInventoryOrbType orbType, EOrbSlot orbSlot)
 		{
 			var orbCollection = gameSave.Inventory.OrbInventory.Inventory;
-			var orbTypeKey = (int) orbType;
+			var orbTypeKey = (int)orbType;
 			var newOrb = new InventoryOrb(orbType);
 			if (!orbCollection.ContainsKey(orbTypeKey))
 				orbCollection.Add(orbTypeKey, newOrb);
 
+<<<<<<< HEAD
 			if (gameSave.GetSeed().Value.Options.DamageRando) OrbDamageManager.SetOrbBaseDamage(newOrb);
 
+=======
+>>>>>>> master
 			switch (orbSlot)
 			{
 				case EOrbSlot.Melee:
@@ -149,26 +173,20 @@ namespace TsRandomizer.Extensions
 			}
 		}
 
-		static void AddEnquipment(this GameSave gameSave, EInventoryEquipmentType enquipment)
-		{
+		static void AddEquipment(this GameSave gameSave, EInventoryEquipmentType enquipment) =>
 			gameSave.Inventory.EquipmentInventory.AddItem((int) enquipment);
-		}
 
-		static void AddUseItem(this GameSave gameSave, EInventoryUseItemType useItem)
-		{
+		static void AddUseItem(this GameSave gameSave, EInventoryUseItemType useItem) => 
 			gameSave.Inventory.UseItemInventory.AddItem((int)useItem);
-		}
 
-		static void AddRelic(this GameSave gameSave, EInventoryRelicType relic)
-		{
+		internal static void AddRelic(this GameSave gameSave, EInventoryRelicType relic) => 
 			gameSave.Inventory.RelicInventory.AddItem((int)relic);
-		}
 
-		static void AddFamiliar(this GameSave gameSave, EInventoryFamiliarType familiar)
+		internal static void AddFamiliar(this GameSave gameSave, EInventoryFamiliarType familiar)
 		{
 			gameSave.Inventory.FamiliarInventory.AddItem((int)familiar);
 
-			gameSave.DataKeyBools[FamilierPrefixKey + (int)familiar] = true;
+			gameSave.DataKeyBools[FamiliarPrefixKey + (int)familiar] = true;
 		}
 
 		static void AddStat(this GameSave gameSave, Level level, EItemType stat)
@@ -207,7 +225,7 @@ namespace TsRandomizer.Extensions
 					gameSave.AddOrb(itemInfo.OrbType, itemInfo.OrbSlot);
 					break;
 				case LootType.ConstEquipment:
-					gameSave.AddEnquipment(itemInfo.Enquipment);
+					gameSave.AddEquipment(itemInfo.Equipment);
 					break;
 				case LootType.ConstUseItem:
 					gameSave.AddUseItem(itemInfo.UseItem);
@@ -227,18 +245,16 @@ namespace TsRandomizer.Extensions
 		}
 
 		internal static void AddConcussion(this GameSave gameSave)
-        {
+		{
 			if (gameSave.DataKeyInts.ContainsKey(ConcussionCountFileKey))
 				gameSave.DataKeyInts[ConcussionCountFileKey]++;
 			else
 				gameSave.DataKeyInts[ConcussionCountFileKey] = 1;
-        }
+		}
 
-		internal static int GetConcussionCount(this GameSave gameSave)
-        {
-			return gameSave.DataKeyInts.ContainsKey(ConcussionCountFileKey)
+		internal static int GetConcussionCount(this GameSave gameSave) =>
+			gameSave.DataKeyInts.ContainsKey(ConcussionCountFileKey)
 				? gameSave.DataKeyInts[ConcussionCountFileKey]
 				: 0;
-        }
 	}
 }

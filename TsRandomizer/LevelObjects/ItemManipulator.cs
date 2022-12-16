@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using Timespinner.GameAbstractions.Inventory;
 using Timespinner.GameObjects.BaseClasses;
 using TsRandomizer.Extensions;
 using TsRandomizer.IntermediateObjects;
@@ -11,7 +9,7 @@ namespace TsRandomizer.LevelObjects
 {
 	abstract class ItemManipulator<T> : ItemManipulator where T : Mobile
 	{
-		public readonly T TypedObject;
+		public readonly new T TypedObject;
 
 		protected ItemManipulator(T typedObject, ItemLocation itemLocation) : base(typedObject, itemLocation)
 		{
@@ -23,20 +21,21 @@ namespace TsRandomizer.LevelObjects
 	{
 		static ItemLocationMap itemLocationMap;
 
-		public bool IsPickedUp => itemLocation.IsPickedUp;
+		public bool IsPickedUp => ItemLocation.IsPickedUp;
 
 		public readonly ItemInfo ItemInfo;
-		readonly ItemLocation itemLocation;
+		public readonly ItemLocation ItemLocation;
 
 		protected ItemManipulator(Mobile typedObject, ItemLocation itemLocation) : base(typedObject)
 		{
-			this.itemLocation = itemLocation;
+			ItemLocation = itemLocation;
 			ItemInfo = itemLocation?.ItemInfo;
 		}
 
 		protected void AwardContainedItem()
 		{
 			Level.GameSave.AddItem(Level, ItemInfo.Identifier);
+
 			if (ItemInfo.Identifier.LootType == LootType.ConstRelic)
 				LevelReflected.UnlockRelic(ItemInfo.Identifier.Relic);
 
@@ -46,16 +45,13 @@ namespace TsRandomizer.LevelObjects
 		protected void OnItemPickup()
 		{
 			ItemInfo.OnPickup(Level);
-			itemLocation.SetPickedUp();
+			ItemLocation.SetPickedUp(Level);
 
 			if (ItemInfo.IsProgression)
 				ItemTrackerUplink.UpdateState(ItemTrackerState.FromItemLocationMap(itemLocationMap));
 		}
 
-		public static void Initialize(ItemLocationMap itemLocations)
-		{
-			itemLocationMap = itemLocations;
-		}
+		public static void Initialize(ItemLocationMap itemLocations) => itemLocationMap = itemLocations;
 
 		public static ItemManipulator GenerateShadowObject(Type levelObjectType, Mobile obj, ItemLocationMap itemLocations)
 		{
@@ -73,8 +69,5 @@ namespace TsRandomizer.LevelObjects
 
 		protected void ShowItemAwardPopup() =>
 			Level.ShowItemAwardPopup(ItemInfo.Identifier);
-
-		
-
 	}
 }

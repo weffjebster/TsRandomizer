@@ -7,12 +7,12 @@ namespace TsRandomizer.Archipelago
 {
 	static class LocationMap
 	{
-		static readonly Dictionary<int, ItemKey> MapLocationIdToItemKey;
-		static readonly Dictionary<ItemKey, int> MapItemKeyToLocationId;
+		static readonly Dictionary<long, ItemKey> MapLocationIdToItemKey;
+		static readonly Dictionary<ItemKey, long> MapItemKeyToLocationId;
 
 		static LocationMap()
 		{
-			MapLocationIdToItemKey = new Dictionary<int, ItemKey>(181) {
+			MapLocationIdToItemKey = new Dictionary<long, ItemKey>(181) {
 				// Present
 				// Tutorial
 				{1337000, ItemKey.TutorialMeleeOrb},
@@ -64,7 +64,7 @@ namespace TsRandomizer.Archipelago
 				{1337039, new ItemKey(2, 23, 1112, 112)},
 				{1337040, new ItemKey(2, 23, 136, 304)},
 				{1337041, new ItemKey(2, 11, 104, 192)},
-				{1337042, new ItemKey(2, 29, 280, 222 + TimespinnerSpindle.YOffset)},
+				{1337042, new RoomItemKey(2, 29)},
 				{1337043, new RoomItemKey(2, 52)},
 				// Sealed Caves (Xarion)
 				{1337044, new ItemKey(9, 10, 248, 848)},
@@ -82,7 +82,7 @@ namespace TsRandomizer.Archipelago
 				{1337055, new ItemKey(9, 3, 744, 560)},
 				{1337056, new ItemKey(9, 2, 184, 176)},
 				{1337057, new ItemKey(9, 2, 104, 160)},
-				// Militairy Fortress
+				// Military Fortress
 				{1337058, new ItemKey(10, 3, 264, 128)},
 				{1337059, new ItemKey(10, 11, 296, 192)},
 				{1337060, new ItemKey(10, 4, 1064, 176)},
@@ -211,19 +211,47 @@ namespace TsRandomizer.Archipelago
 				{1337168, new ItemKey(11, 34, 200, 192)},
 				{1337169, new ItemKey(11, 37, 200, 192)},
 				{1337170, new ItemKey(11, 38, 120, 176)},
-				{1337171, new ItemKey(5, 20, 504, 48)}, //new
-				{1337172, new ItemKey(8, 3, 1256, 544)}, //new
-				{1337173, new RoomItemKey(8, 21)}, //new
-				{1337174, new ItemKey(7, 3, 120, 204)}, //new
-				{1337175, new RoomItemKey(7, 28)}, //new
-				{1337176, new RoomItemKey(7, 5)}, //new
+				{1337171, new ItemKey(5, 20, 504, 48)},
+				{1337172, new ItemKey(8, 3, 1256, 544)},
+				{1337173, new RoomItemKey(8, 21)},
+				{1337174, new ItemKey(7, 3, 120, 204)},
+				{1337175, new RoomItemKey(7, 28)},
+				{1337176, new RoomItemKey(7, 5)},
 
-				// 1337177 - 1337236 Reserved
+				// Lore Checks
+				// Memories (Present)
+				{1337177, new ItemKey(1, 10, 312, 81)},
+				{1337178, new ItemKey(2, 5, 200, 145)},
+				{1337179, new ItemKey(2, 45, 344, 145)},
+				{1337180, new ItemKey(2, 51, 88, 177)},
+				{1337181, new ItemKey(2, 25, 216, 145)},
+				{1337182, new ItemKey(2, 46, 200, 145)},
+				{1337183, new ItemKey(2, 11, 200, 161)},
+				{1337184, new ItemKey(10, 3, 536, 97)},
+				{1337185, new ItemKey(11, 7, 248, 129)},
+				{1337186, new ItemKey(11, 7, 296, 129)},
+				{1337187, new ItemKey(12, 19, 56, 145)},
+				// Letters (Past)
+				{1337188, new ItemKey(3, 12, 472, 161)},
+				{1337189, new ItemKey(3, 15, 328, 97)},
+				{1337190, new ItemKey(4, 18, 456, 497)},
+				{1337191, new ItemKey(4, 11, 360, 161)},
+				{1337192, new ItemKey(5, 41, 184, 177)},
+				{1337193, new ItemKey(5, 44, 264, 161)},
+				{1337194, new ItemKey(5, 14, 568, 177)},
+				{1337195, new ItemKey(6, 17, 344, 433)},
+				{1337196, new ItemKey(6, 14, 136, 177)},
+				{1337197, new ItemKey(6, 25, 152, 145)},
+				{1337198, new ItemKey(8, 36, 136, 145)},
+
+				// 1337199 - 1337235 Reserved
 
 				// Pyramid
+				// Ancient Pyramid
+				{1337236, new ItemKey(16, 5, 136, 192)}, //nightmare door
 				// Temporal Gyre
-				{1337237, new ItemKey(14, 9, 200, 125)}, //new
-				{1337238, new ItemKey(14, 7, 200, 205)}, //new
+				{1337237, new ItemKey(14, 9, 200, 125)},
+				{1337238, new ItemKey(14, 7, 200, 205)},
 				{1337239, new ItemKey(14, 14, 200, 832)},
 				{1337240, new ItemKey(14, 17, 200, 832)},
 				{1337241, new ItemKey(14, 20, 200, 832)},
@@ -238,22 +266,22 @@ namespace TsRandomizer.Archipelago
 				{1337249, new ItemKey(16, 16, 1512, 144)}
 			};
 
-			MapItemKeyToLocationId = new Dictionary<ItemKey, int>(MapLocationIdToItemKey.Count);
+			MapItemKeyToLocationId = new Dictionary<ItemKey, long>(MapLocationIdToItemKey.Count);
 
 			foreach (var kvp in MapLocationIdToItemKey)
 				MapItemKeyToLocationId.Add(kvp.Value, kvp.Key);
 		}
 
-		public static int GetLocationId(ItemKey key) =>
+		public static long GetLocationId(ItemKey key) =>
 			MapItemKeyToLocationId.TryGetValue(key, out var locationId)
 				? locationId
 				: MapItemKeyToLocationId.TryGetValue(key.ToRoomItemKey(), out var roomLocationId)
 					? roomLocationId
-					: throw new Exception("Key does not map to Archipelago itemlocation");
+					: throw new Exception($"Key {key} does not map to an Archipelago itemlocation");
 
-		public static ItemKey GetItemkey(int locationId) =>
+		public static ItemKey GetItemkey(long locationId) =>
 			MapLocationIdToItemKey.TryGetValue(locationId, out var key)
 				? key
-				: throw new Exception("Archipelago itemlocation does not map to itemKey");
+				: throw new Exception($"Archipelago itemlocation {locationId} does not map to itemKey");
 	}
 }

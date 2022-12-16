@@ -10,31 +10,39 @@ namespace TsRandomizer
 {
 	static class DummyPlatformHelper
 	{
-		public static PlatformHelper CreateStreamInstance()
+		public static PlatformHelper CreateSteamInstance()
 		{
 			var platformHelper = (PlatformHelper)Activator.CreateInstance(TimeSpinnerType.Get("Timespinner.PlatformHelper"), true);
 
-			do {
-				Thread.Sleep(100);
+			var startTime = DateTime.UtcNow;
 
-				var processes = GetTimespinnerProcesses().ToArray();
+			try
+			{
+				do
+				{
+					Thread.Sleep(100);
 
-				if (!processes.Any())
-					continue;
+					var processes = GetTimespinnerProcesses().ToArray();
 
-				foreach (var process in processes)
-					process.Kill();
+					if (!processes.Any())
+						continue;
 
-				break;
-			} while (true);
+					foreach (var process in processes)
+						process.Kill();
+
+					break;
+				} while (DateTime.UtcNow - startTime < TimeSpan.FromSeconds(10));
+
+			}
+			catch
+			{
+			}
 
 			return platformHelper;
 		}
 
-		public static PlatformHelper CreateDrmFreeInstance()
-		{
-			return (PlatformHelper)Activator.CreateInstance(TimeSpinnerType.Get("Timespinner.PlatformHelper"), true);
-		}
+		public static PlatformHelper CreateDrmFreeInstance() => 
+			(PlatformHelper)Activator.CreateInstance(TimeSpinnerType.Get("Timespinner.PlatformHelper"), true);
 
 		static IEnumerable<Process> GetTimespinnerProcesses()
 		{

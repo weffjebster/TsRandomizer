@@ -8,6 +8,7 @@ using Timespinner.GameStateManagement.ScreenManager;
 using TsRandomizer.Extensions;
 using TsRandomizer.IntermediateObjects;
 using TsRandomizer.Randomisation;
+using TsRandomizer.Settings;
 
 namespace TsRandomizer.Screens
 {
@@ -25,7 +26,9 @@ namespace TsRandomizer.Screens
 		{
 			new Roomkey(5, 5),
 			new Roomkey(8, 13),
-			new Roomkey(9, 7)
+			new Roomkey(9, 7),
+			new Roomkey(14, 4),
+			new Roomkey(14, 5),
 		};
 
 		static readonly Roomkey[] GyreRooms =
@@ -59,18 +62,22 @@ namespace TsRandomizer.Screens
 		static readonly Roomkey[] FalseWarpRooms =
 		{
 			new Roomkey(11, 4), // Lab cabinet
-			new Roomkey(2, 51) // Backer memory room
+			new Roomkey(2, 51), // Backer memory room
+			new Roomkey(10, 0) // Military Hangar
 		};
 
 		ItemLocationMap itemLocations;
 		bool isShowingAviableLocations;
 
-		LookupDictionairy<Roomkey, MinimapRoomState> preservedRoomStates;
+		readonly SettingCollection settings;
+
+		LookupDictionary<Roomkey, MinimapRoomState> preservedRoomStates;
 
 		MinimapSpecification Minimap => ((object)Dynamic._minimapHud).AsDynamic()._minimap;
 
 		public MinimapScreen(ScreenManager screenManager, GameScreen screen) : base(screenManager, screen)
 		{
+			settings = screenManager.FirstOrDefault<GameplayScreen>().Settings;
 		}
 
 		static MinimapSpecification DeepClone(MinimapSpecification spec)
@@ -172,10 +179,10 @@ namespace TsRandomizer.Screens
 		{
 			var hud = ((object) Dynamic._minimapHud).AsDynamic();
 
+			hud._minimap = DeepClone(Dynamic._minimap);
+
 			foreach (var roomkey in GyreRooms)
 				GetRoom(roomkey).IsDebug = false;
-
-			hud._minimap = DeepClone(Dynamic._minimap);
 
 			itemLocations = itemLocationMap;
 
@@ -191,7 +198,7 @@ namespace TsRandomizer.Screens
 
 			foreach (var roomkey in FalseWarpRooms)
 				foreach (var block in GetRoom(roomkey).Blocks.Values)
-					block.IsTimespinner = true;
+					block.IsBoss = true;
 		}
 
 		public override void Update(GameTime gameTime, InputState input)
@@ -215,14 +222,11 @@ namespace TsRandomizer.Screens
 			}
 		}
 
-		public override void Unload()
-		{
-			ResetMinimap();
-		}
+		public override void Unload() => ResetMinimap();
 
 		void MarkAvailableItemLocations()
 		{
-			preservedRoomStates = new LookupDictionairy<Roomkey, MinimapRoomState>(r => r.RoomKey);
+			preservedRoomStates = new LookupDictionary<Roomkey, MinimapRoomState>(r => r.RoomKey);
 
 			var visableAreas = (List<EMinimapEraType>)Dynamic._availableEras;
 

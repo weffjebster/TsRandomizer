@@ -34,7 +34,7 @@ namespace TsRandomizer.ItemTracker
 		public bool CardE;
 		public bool CardV;
 		public bool WaterMask;
-		public bool GassMask;
+		public bool GasMask;
 		public bool PyramidKeys;
 		public bool PinkOrb;
 		public bool PinkSpell;
@@ -52,10 +52,10 @@ namespace TsRandomizer.ItemTracker
 				.ToArray();
 
 			var obtainedProgressiveItems = unlockedProgressionItems
-				.OfType<PogRessiveItemInfo>();
+				.OfType<ProgressiveItemInfo>();
 
 			var obtainedSingleItems = unlockedProgressionItems
-				.Where(i => !(i is PogRessiveItemInfo));
+				.Where(i => !(i is ProgressiveItemInfo));
 
 			var obtainedItemIdentifiers = obtainedSingleItems
 				.Select(i => i.Identifier)
@@ -92,7 +92,7 @@ namespace TsRandomizer.ItemTracker
 			{new ItemIdentifier(EInventoryRelicType.ElevatorKeycard), s => s.CardE},
 			{new ItemIdentifier(EInventoryRelicType.ScienceKeycardV), s => s.CardV},
 			{new ItemIdentifier(EInventoryRelicType.WaterMask), s => s.WaterMask},
-			{new ItemIdentifier(EInventoryRelicType.AirMask), s => s.GassMask},
+			{new ItemIdentifier(EInventoryRelicType.AirMask), s => s.GasMask},
 			{new ItemIdentifier(EInventoryRelicType.PyramidsKey), s => s.PyramidKeys},
 			{new ItemIdentifier(EInventoryOrbType.Pink, EOrbSlot.Melee), s => s.PinkOrb},
 			{new ItemIdentifier(EInventoryOrbType.Pink, EOrbSlot.Spell), s => s.PinkSpell},
@@ -105,7 +105,7 @@ namespace TsRandomizer.ItemTracker
 
 		static void SetMemberForItem(ItemTrackerState trackerState, ItemIdentifier itemInfo)
 		{
-			if (!ItemToMemberMap.TryGetValue(itemInfo, out Expression<Func<ItemTrackerState, bool>> expression))
+			if (!ItemToMemberMap.TryGetValue(itemInfo, out var expression))
 				return;
 
 			var memberExpression = (MemberExpression)expression.Body;

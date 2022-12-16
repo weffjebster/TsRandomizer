@@ -1,6 +1,5 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using Archipelago.MultiClient.Net;
+﻿using Archipelago.MultiClient.Net;
+using Timespinner.GameAbstractions.Gameplay;
 using Timespinner.GameAbstractions.Inventory;
 using Timespinner.GameAbstractions.Saving;
 using TsRandomizer.IntermediateObjects;
@@ -32,7 +31,7 @@ namespace TsRandomizer.Randomisation.ItemPlacers
 			this.saveGame = saveGame;
 
 			TimeSpinnerGame.Localizer.OverrideKey("inv_use_MagicMarbles", "Archipelago Item");
-			TimeSpinnerGame.Localizer.OverrideKey("inv_use_MagicMarbles_desc", "Item that belongs to a distant timeline somewhere in the Archipelago");
+			TimeSpinnerGame.Localizer.OverrideKey("inv_use_MagicMarbles_desc", "Item that belongs to a distant timeline somewhere in the Archipelago (cannot be sold)");
 		}
 
 		public override ItemLocationMap GenerateItemLocationMap(bool isProgressionOnly)
@@ -49,7 +48,7 @@ namespace TsRandomizer.Randomisation.ItemPlacers
 			if (!result.Successful)
 				throw new ConnectionFailedException((LoginFailure)result, server, user, password);
 
-			itemLocations = new ArchipelagoItemLocationMap(ItemInfoProvider, UnlockingMap, Seed.Options);
+			itemLocations = new ArchipelagoItemLocationMap(ItemInfoProvider, UnlockingMap, Seed.Options, ((LoginSuccessful)result).Slot);
 
 			if (isProgressionOnly)
 				return itemLocations;
@@ -69,21 +68,17 @@ namespace TsRandomizer.Randomisation.ItemPlacers
 			return itemLocations;
 		}
 
-		void OnItemLocationChecked(ItemLocation itemLocation)
+		void OnItemLocationChecked(Level level)
 		{
 			Client.UpdateChecks(itemLocations);
 
-			RemoveRemoteItemsFromInventory();
+			RemoveRemoteItemsFromInventory(level);
 		}
 
-		void RemoveRemoteItemsFromInventory()
-		{
-			saveGame.Inventory.UseItemInventory.RemoveItem((int)EInventoryUseItemType.MagicMarbles, 999);
-		}
+		static void RemoveRemoteItemsFromInventory(Level level) => 
+			level.GameSave.Inventory.UseItemInventory.RemoveItem((int)EInventoryUseItemType.MagicMarbles, 999);
 
-		protected override void PutItemAtLocation(ItemInfo itemInfo, ItemLocation itemLocation)
-		{
+		protected override void PutItemAtLocation(ItemInfo itemInfo, ItemLocation itemLocation) => 
 			itemLocation.SetItem(itemInfo);
-		}
 	}
 }

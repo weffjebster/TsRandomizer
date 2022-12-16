@@ -1,31 +1,39 @@
-﻿using System;
+using System;
 using Archipelago.MultiClient.Net.BounceFeatures.DeathLink;
 using Timespinner.GameAbstractions.Gameplay;
 using Timespinner.GameObjects.BaseClasses;
 using TsRandomizer.Screens;
+using TsRandomizer.Settings;
 
 namespace TsRandomizer.Archipelago
 {
 	class DeathLinker
 	{
 		readonly DeathLinkService service;
+		readonly SettingCollection settings;
 
 		volatile DeathLink lastDeathLink;
 		volatile bool rip;
 		volatile EAFSM lastState;
 
-		public DeathLinker(DeathLinkService service)
+		public DeathLinker(SettingCollection settings, DeathLinkService service)
 		{
 			this.service = service;
+			this.settings = settings;
 
 			service.OnDeathLinkReceived += OnDeathLinkReceived;
+
+			service.EnableDeathLink();
 		}
 
-		void OnDeathLinkReceived(DeathLink deathlink)
+		void OnDeathLinkReceived(DeathLink deathLink)
 		{
-			if (lastDeathLink == null || deathlink.Timestamp - lastDeathLink.Timestamp > TimeSpan.FromSeconds(5))
+			if (!settings.DeathLink.Value)
+				return;
+
+			if (lastDeathLink == null || deathLink.Timestamp - lastDeathLink.Timestamp > TimeSpan.FromSeconds(5))
 			{
-				lastDeathLink = deathlink;
+				lastDeathLink = deathLink;
 				rip = true;
 				lastState = EAFSM.Dying;
 			}
@@ -33,12 +41,23 @@ namespace TsRandomizer.Archipelago
 
 		public void Update(Level level, ScreenManager screenManager)
 		{
-			if (level.MainHero == null)
+			if (!settings.DeathLink.Value || level.MainHero == null)
 				return;
 
 			if (rip)
 			{
 				rip = false;
+
+				if (level.ID == 17 || (level.ID == 16 && level.RoomID == 27))
+				{
+					lastState = level.MainHero.CurrentState;
+					return; //Do not kill the player during the ending.
+				}
+
+				ScreenManager.Console.AddLine( 
+					!string.IsNullOrEmpty(lastDeathLink.Cause)
+						? $"DeathLink received from {lastDeathLink.Source}, Reason: {lastDeathLink.Cause}"
+						: $"DeathLink received from {lastDeathLink.Source}");
 
 				var message = $"Your soul was linked across time to {lastDeathLink.Source} who has perished, and so have you!";
 
@@ -56,8 +75,14 @@ namespace TsRandomizer.Archipelago
 				if (level.MainHero.CurrentState == EAFSM.Dying && lastState != EAFSM.Dying)
 				{
 					var deathLink = new DeathLink(Client.GetCurrentPlayerName());
+
 					lastDeathLink = deathLink;
-					service.SendDeathLink(deathLink);
+
+					try
+					{
+						service.SendDeathLink(deathLink);
+					}
+					catch {}
 				}
 
 				lastState = level.MainHero.CurrentState;

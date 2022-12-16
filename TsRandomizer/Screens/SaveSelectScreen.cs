@@ -9,11 +9,13 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using SDL2;
 using Timespinner.GameAbstractions.Saving;
+using Timespinner.GameStateManagement;
 using Timespinner.GameStateManagement.ScreenManager;
 using TsRandomizer.Drawables;
 using TsRandomizer.Extensions;
 using TsRandomizer.IntermediateObjects;
 using TsRandomizer.Randomisation;
+using TsRandomizer.Screens.Menu;
 
 namespace TsRandomizer.Screens
 {
@@ -21,9 +23,12 @@ namespace TsRandomizer.Screens
 	// ReSharper disable once UnusedMember.Global
 	class SaveSelectScreen : Screen
 	{
+		static readonly Type MessageBoxScreenType = TimeSpinnerType.Get("Timespinner.GameStateManagement.MessageBoxScreen");
+
 		const int NumberOfSaveFileSlots = 8;
 
 		readonly Dictionary<object, SeedRepresentation> seedRepresentations = new Dictionary<object, SeedRepresentation>(10);
+		readonly Dictionary<object, ArchipelagoRepresentation> archipelagoRepresentations = new Dictionary<object, ArchipelagoRepresentation>(10);
 
 		int fileToDeleteIndex = -1;
 		int zoom;
@@ -31,6 +36,7 @@ namespace TsRandomizer.Screens
 		public SaveSelectScreen(ScreenManager screenManager, GameScreen screen) : base(screenManager, screen)
 		{
 			var saveFileEntries = (IList)((object)Dynamic._saveFileCollection).AsDynamic().Entries;
+			TimeSpinnerGame.Localizer.OverrideKey("inv_use_PlaceHolderItem1", "Nothing");
 
 			foreach (var entry in saveFileEntries)
 			{
@@ -43,6 +49,7 @@ namespace TsRandomizer.Screens
 				var seed = saveFile.GetSeed();
 
 				seedRepresentations.Add(entry, new SeedRepresentation(seed, screenManager.Dynamic.GCM, false));
+				archipelagoRepresentations.Add(entry, new ArchipelagoRepresentation(saveFile, screenManager.Dynamic.GCM));
 			}
 		}
 
@@ -66,18 +73,32 @@ namespace TsRandomizer.Screens
 
 			UpdateDrawPositions(saveFileEntries);
 
-			var missingEntries = new List<object>();
+			var missingSeedEntries = new List<object>();
 
 			foreach (var seedRepresentation in seedRepresentations)
 			{
 				seedRepresentation.Value.ShowSeedId = false;
 
 				if (!saveFileEntries.Contains(seedRepresentation.Key))
-					missingEntries.Add(seedRepresentation.Key);
+					missingSeedEntries.Add(seedRepresentation.Key);
 			}
 
-			foreach (var missingEntry in missingEntries)
+			foreach (var missingEntry in missingSeedEntries)
 				seedRepresentations.Remove(missingEntry);
+
+			var missingArchipelagoEntries = new List<object>();
+			
+			foreach (var archipelagoRepresentation in archipelagoRepresentations)
+			{
+				archipelagoRepresentation.Value.ShowArchipelagoInfo = false;
+
+				if (!saveFileEntries.Contains(archipelagoRepresentation.Key))
+					missingArchipelagoEntries.Add(archipelagoRepresentation.Key);
+			}
+
+			foreach (var missingEntry in missingArchipelagoEntries)
+				archipelagoRepresentations.Remove(missingEntry);
+
 
 			UpdateInput(input);
 		}
@@ -128,23 +149,34 @@ namespace TsRandomizer.Screens
 		{
 			foreach (var saveFileEntry in saveFileEntries)
 			{
-				if (!seedRepresentations.ContainsKey(saveFileEntry)) continue;
-
+				if (!seedRepresentations.ContainsKey(saveFileEntry) && !archipelagoRepresentations.ContainsKey(saveFileEntry)) continue;
+				
 				var entry = saveFileEntry.AsDynamic();
 
 				if (entry.IsEmptySaveSlot || entry.IsCorrupt)
 					continue;
 
-				var drawPosition = (Vector2) entry.DrawPosition;
-				var textXOffset = (int) entry._textOffsetX;
-				var font = (SpriteFont) entry._font;
+				var drawPosition = (Vector2)entry.DrawPosition;
+				var textXOffset = (int)entry._textOffsetX;
+				var font = (SpriteFont)entry._font;
 				var origin = new Vector2(0.0f, font.LineSpacing / 2f);
 
-				var drawPoint = new Point(
-					(int) (drawPosition.X + textXOffset + entry._saveColumnOffsetX - seedRepresentations[saveFileEntry].Width),
-					(int) drawPosition.Y);
+				if (seedRepresentations.ContainsKey(saveFileEntry))
+				{
+					var drawPoint = new Point(
+						(int)(drawPosition.X + textXOffset + entry._saveColumnOffsetX - seedRepresentations[saveFileEntry].Width),
+						(int)drawPosition.Y);
 
-				seedRepresentations[saveFileEntry].SetDrawPoint(drawPoint, origin);
+					seedRepresentations[saveFileEntry].SetDrawPoint(drawPoint, origin);
+				}
+				if (archipelagoRepresentations.ContainsKey(saveFileEntry))
+				{
+					var drawPoint = new Point(
+						(int)(drawPosition.X + textXOffset),
+						(int)drawPosition.Y);
+
+					archipelagoRepresentations[saveFileEntry].SetDrawPoint(drawPoint, origin);
+				}
 			}
 		}
 
@@ -157,11 +189,15 @@ namespace TsRandomizer.Screens
 
 		void UpdateInput(InputState input)
 		{
+			if (!GameScreen.IsActive) return;
+
 			if (input.IsButtonHold(Buttons.LeftTrigger))
 			{
 				UpdateDescription(true);
 
 				DisplaySeedId();
+
+				DisplayArchipelagoInfo();
 
 				if (input.IsNewButtonPress(Buttons.X))
 				{
@@ -191,33 +227,50 @@ namespace TsRandomizer.Screens
 				if (!seed.HasValue)
 					return;
 
-				SDL.SDL_SetClipboardText(seed.Value.ToDisplayString());
+				SDL.SDL_SetClipboardText(seed.Value.ToString());
 			}
-		}
+
+			if (input.IsNewPressTertiary(null))
+			{
+				var selectedSaveFile = CurrentSelectedSave;
+				if (selectedSaveFile == null)
+					return;
+
+				//if save is cleared, cancel newgame+ menu
+				if (selectedSaveFile.IsGameCleared)
+					ScreenManager.RemoveScreen(ScreenManager.FirstOrDefaultTimespinnerOfType(MessageBoxScreenType));
+
+				var seed = selectedSaveFile.GetSeed();
+				if (seed.HasValue && seed.Value.Options.Archipelago)
+				{
+					ScreenManager.AddScreen(ArchipelagoSelectionScreen.Create(ScreenManager), null);
+				}
+			}
+ 		}
 
 		void UpdateDescription(bool displayDeleteAll)
 		{
-			var x = CurrentSelectedMenuEntry?.AsDynamic();
-			if (x == null) return;
+			if (CurrentSelectedMenuEntry == null) return;
 
-			string desc = (x._isCleared)
-				? TimeSpinnerGame.Localizer.Get("SaveSelectContClearedDescription")
-				: TimeSpinnerGame.Localizer.Get("SaveSelectContinueDescription");
+			var menuEntry = CurrentSelectedMenuEntry?.AsDynamic();
+			if (menuEntry == null) return;
+
+			string desc = TimeSpinnerGame.Localizer.Get("SaveSelectContinueDescription");
 
 			if (displayDeleteAll)
 			{
 				var xStringStart = desc.IndexOf("$X", StringComparison.InvariantCulture);
-				var xStringEnd = desc.IndexOf("$Y", xStringStart, StringComparison.InvariantCulture);
 
 				var aString = desc.Substring(0, xStringStart + 3);
-				var yString = (xStringEnd != -1)
-					? desc.Substring(xStringEnd -1)
-					: "";
 
-				desc = aString + "to delete all files." + yString;
+				desc = aString + "to delete all files.";
 			}
 
-			x.Description = desc;
+			var seed = CurrentSelectedSave?.GetSeed();
+			if (seed.HasValue && seed.Value.Options.Archipelago)
+				desc += " Press $Y to change archipelago server/credentials";
+			
+			menuEntry.Description = desc;
 
 			Dynamic.OnSelectedEntryChanged(Dynamic.SelectedIndex);
 		}
@@ -231,6 +284,15 @@ namespace TsRandomizer.Screens
 					seedRepresentation.ShowSeedId = true;
 		}
 
+		void DisplayArchipelagoInfo()
+		{
+			var currentEntry = CurrentSelectedMenuEntry;
+			if (currentEntry != null
+			   && archipelagoRepresentations.TryGetValue(currentEntry, out var archipelagoRepresentation)
+			   && archipelagoRepresentation != null)
+				archipelagoRepresentation.ShowArchipelagoInfo = true;
+		}
+
 		void ShowDeleteAllDialog()
 		{
 			var messageBox = MessageBox.Create(ScreenManager, "Delete all saves?", _ => OnDeleteAllSavesAccepted());
@@ -238,10 +300,7 @@ namespace TsRandomizer.Screens
 			ScreenManager.AddScreen(messageBox.Screen, GameScreen.ControllingPlayer);
 		}
 
-		void OnDeleteAllSavesAccepted()
-		{
-			fileToDeleteIndex = 0;
-		}
+		void OnDeleteAllSavesAccepted() => fileToDeleteIndex = 0;
 
 		void ShowSpoilerGenerationDialog(GameSave save)
 		{
@@ -275,7 +334,7 @@ namespace TsRandomizer.Screens
 
 			using (var file = new StreamWriter(GetFileName(seed.Value)))
 			{
-				file.WriteLine($"Seed: {seed.Value.ToDisplayString()}");
+				file.WriteLine($"Seed: {seed.Value}");
 				file.WriteLine($"Timespinner version: v{TimeSpinnerGame.Constants.GameVersion}");
 				file.WriteLine($"TsRandomizer version: v{Assembly.GetExecutingAssembly().GetName().Version}");
 
@@ -295,7 +354,7 @@ namespace TsRandomizer.Screens
 			file.WriteLine();
 			file.WriteLine("Progression Chain:");
 			
-			int depth = 0;
+			var depth = 0;
 			var progressionChain = itemLocations.GetProgressionChain();
 
 			do
@@ -378,9 +437,25 @@ namespace TsRandomizer.Screens
 				return;
 
 			using (spriteBatch.BeginUsing(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp))
+			{
 				foreach (var seedRepresentation in seedRepresentations)
 					if (!seedRepresentation.Key.AsDynamic().IsScrolledOff)
 						seedRepresentation.Value.Draw(spriteBatch);
+
+				foreach (var archipelagoRepresentation in archipelagoRepresentations)
+					if (!archipelagoRepresentation.Key.AsDynamic().IsScrolledOff)
+						archipelagoRepresentation.Value.Draw(spriteBatch);
+			}
+		}
+
+		public void UpdateSave(Action<GameSave> updater)
+		{
+			if (CurrentSelectedSave == null) return;
+
+			updater(CurrentSelectedSave);
+
+			var saveFileManager = ((object)Dynamic._saveFileManager).AsDynamic();
+			saveFileManager.RequestGameSave(CurrentSelectedSave, PlayerIndex.One);
 		}
 	}
 }

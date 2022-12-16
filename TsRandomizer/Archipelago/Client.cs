@@ -1,14 +1,15 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Archipelago.MultiClient.Net;
 using Archipelago.MultiClient.Net.BounceFeatures.DeathLink;
 using Archipelago.MultiClient.Net.Enums;
+using Archipelago.MultiClient.Net.Helpers;
 using Archipelago.MultiClient.Net.Models;
 using Archipelago.MultiClient.Net.Packets;
 using Microsoft.Xna.Framework;
-using TsRandomizer.IntermediateObjects;
+using TsRandomizer.Commands;
 using TsRandomizer.Randomisation;
 using TsRandomizer.Screens;
 
@@ -18,28 +19,30 @@ namespace TsRandomizer.Archipelago
 	{
 		static ArchipelagoSession session;
 
-		static volatile int slot = -1;
-
 		static string serverUrl;
 		static string userName;
 		static string password;
-		static string uuid;
 
 		static LoginResult cachedConnectionResult;
 
 		public static bool IsConnected;
 
-		public static Permissions ForfeitPermissions = 0;
+		public static Permissions ForfeitPermissions => session.RoomState.ForfeitPermissions;
+		public static Permissions CollectPermissions => session.RoomState.CollectPermissions;
 
-		public static string ConnectionId = "";
+		public static string ConnectionId => session.ConnectionInfo.Uuid;
 
-		public static string SeedString = "";
+		public static string SeedString => session.RoomState.Seed;
 
-		public static DeathLinkService GetDeathLinkService() => session.CreateDeathLinkServiceAndEnable();
+		public static DeathLinkService GetDeathLinkService() => session.CreateDeathLinkService();
 
-		public static string GetCurrentPlayerName() => session.Players.GetPlayerAliasAndName(slot);
+		public static string GetCurrentPlayerName() => session.Players.GetPlayerAliasAndName(session.ConnectionInfo.Slot);
 
-		public static LoginResult Connect(string server, string user, string pass, string connectionId)
+		public static LocationCheckHelper LocationCheckHelper => session.Locations;
+
+		public static DataStorageHelper DataStorage => session.DataStorage;
+
+		public static LoginResult Connect(string server, string user, string pass = null, string connectionId = null)
 		{
 			if (IsConnected && session.Socket.Connected && cachedConnectionResult != null)
 			{
@@ -52,22 +55,30 @@ namespace TsRandomizer.Archipelago
 			serverUrl = server;
 			userName = user;
 			password = pass;
-			ConnectionId = connectionId ?? Guid.NewGuid().ToString("N");
 
 			try
 			{
 				session = ArchipelagoSessionFactory.CreateSession(new Uri(serverUrl));
-				session.Socket.PacketReceived += PackageReceived;
+				session.MessageLog.OnMessageReceived += OnMessageReceived;
 
-				var result = session.TryConnectAndLogin("Timespinner", userName, new Version(0, 2, 0), new List<string>(0), ConnectionId, password);
+				var result = session.TryConnectAndLogin("Timespinner", userName, 
+					ItemsHandlingFlags.IncludeStartingInventory, tags: new string[0] , password: password);
 
 				IsConnected = result.Successful;
 				cachedConnectionResult = result;
+
+				if (result.Successful)
+				{
+#if DEBUG
+					ScreenManager.Console.AddCommand(new ScoutCommand());
+					ScreenManager.Console.AddCommand(new GetKeyCommand());
+#endif
+				}
 			}
-			catch (Exception e)
+			catch (AggregateException e)
 			{
 				IsConnected = false;
-				cachedConnectionResult = new LoginFailure(e.Message);
+				cachedConnectionResult = new LoginFailure(e.GetBaseException().Message);
 			}
 
 			return cachedConnectionResult;
@@ -80,166 +91,54 @@ namespace TsRandomizer.Archipelago
 			serverUrl = null;
 			userName = null;
 			password = null;
-			uuid = null;
-
-			slot = -1;
 
 			IsConnected = false;
 
 			session = null;
 
-			ForfeitPermissions = 0;
-
 			cachedConnectionResult = null;
-
-			ConnectionId = "";
-
-			SeedString = "";
 		}
 
-		public static ItemIdentifier GetNextItem(int currentIndex)
-		{
-			return session.Items.AllItemsReceived.Count > currentIndex 
-				? ItemMap.GetItemIdentifier(session.Items.AllItemsReceived[currentIndex].Item)
-				: null;
-		}
+		public static NetworkItem? GetNextItem(int currentIndex) =>
+			session.Items.AllItemsReceived.Count > currentIndex 
+				? session.Items.AllItemsReceived[currentIndex]
+				: default(NetworkItem?);
 
-		public static void SetStatus(ArchipelagoClientState status)
-		{
-			SendPacket(new StatusUpdatePacket { Status = status });
-		}
+		public static void SetStatus(ArchipelagoClientState status) => SendPacket(new StatusUpdatePacket { Status = status });
 
-		static void PackageReceived(ArchipelagoPacketBase packet)
+		static void OnMessageReceived(LogMessage message)
 		{
-			switch (packet)
+			var parts = message.Parts.Select(p => new Part(p.Text, FromDrawingColor(p.Color))).ToArray();
+
+			ScreenManager.Console.Add(parts);
+
+			switch (message)
 			{
-				case RoomInfoPacket roomInfoPacket: OnRoomInfoPacketReceived(roomInfoPacket); break;
-				case PrintPacket printPacket: OnPrintPacketReceived(printPacket); break;
-				case PrintJsonPacket printJsonPacket: OnPrintJsonPacketReceived(printJsonPacket); break;
-			}
-		}
-
-		static void SendPacket(ArchipelagoPacketBase packet)
-		{
-			session?.Socket?.SendPacket(packet);
-		}
-
-		public static void Forfeit()
-		{
-			SendPacket(new SayPacket { Text = "!forfeit" });
-		}
-
-		static void OnRoomInfoPacketReceived(RoomInfoPacket packet)
-		{
-			if (packet.Permissions != null && packet.Permissions.TryGetValue("forfeit", out var permissions))
-				ForfeitPermissions = permissions;
-
-			SeedString = packet.SeedName ?? "0";
-		}
-
-		static void OnPrintPacketReceived(PrintPacket printPacket)
-		{
-			if (printPacket.Text == null)
-				return;
-
-			var lines = printPacket.Text.Split('\n');
-
-			foreach (var line in lines)
-				ScreenManager.Log.Add(true, new Part(line));
-		}
-
-		static void OnPrintJsonPacketReceived(PrintJsonPacket printJsonPacket)
-		{
-			var parts = new List<Part>();
-
-			foreach (var messagePart in printJsonPacket.Data)
-				parts.Add(new Part(GetMessage(messagePart), GetColor(messagePart)));
-
-			ScreenManager.Log.Add(MessageIsAboutCurrentPlayer(printJsonPacket), parts.ToArray());
-		}
-
-		static bool MessageIsAboutCurrentPlayer(PrintJsonPacket printJsonPacket)
-		{
-			return printJsonPacket.Data.Any(
-				p => p.Type.HasValue && p.Type == JsonMessagePartType.PlayerId
-				     && int.TryParse(p.Text, out var playerId)
-				     && playerId == slot);
-		}
-
-		static string GetMessage(JsonMessagePart messagePart)
-		{
-			switch (messagePart.Type)
-			{
-				case JsonMessagePartType.PlayerId:
-					return int.TryParse(messagePart.Text, out var playerSlot) 
-						? session.Players.GetPlayerAliasAndName(playerSlot)
-						: messagePart.Text;
-				case JsonMessagePartType.ItemId:
-					return int.TryParse(messagePart.Text, out var itemId)
-						? session.Items.GetItemName(itemId)
-						: messagePart.Text;
-				case JsonMessagePartType.LocationId:
-					return int.TryParse(messagePart.Text, out var locationId)
-						? session.Locations.GetLocationNameFromId(locationId)
-						: messagePart.Text;
+				case ItemSendLogMessage itemMessage:
+					ScreenManager.Log.Add(IsMe(itemMessage.SendingPlayerSlot), IsMe(itemMessage.ReceivingPlayerSlot), itemMessage.Item.Flags, parts);
+					break;
 				default:
-					return messagePart.Text;
+					if (!ScreenManager.IsConsoleOpen)
+						ScreenManager.Log.AddSystemMessage(parts);
+					break;
 			}
 		}
 
-		static Color GetColor(JsonMessagePart messagePart)
-		{
-			switch (messagePart.Color)
-			{
-				case JsonMessagePartColor.Red:
-					return Color.Red;
-				case JsonMessagePartColor.Green:
-					return Color.Green;
-				case JsonMessagePartColor.Yellow:
-					return Color.Yellow;
-				case JsonMessagePartColor.Blue:
-					return Color.Blue;
-				case JsonMessagePartColor.Magenta:
-					return Color.Magenta;
-				case JsonMessagePartColor.Cyan:
-					return Color.Cyan;
-				case JsonMessagePartColor.Black:
-					return Color.DarkGray;
-				case JsonMessagePartColor.White:
-					return Color.White;
-				case null:
-					return GetColorFromPartType(messagePart);
-				default:
-					return Color.White;
-			}
-		}
+		static Color FromDrawingColor(System.Drawing.Color drawingColor) => new Color(drawingColor.R, drawingColor.G, drawingColor.B, drawingColor.A);
 
-		static Color GetColorFromPartType(JsonMessagePart messagePart)
-		{
-			switch (messagePart.Type)
-			{
-				case JsonMessagePartType.PlayerId:
-					return (int.TryParse(messagePart.Text, out var playerId) && playerId == slot)
-						? Color.Yellow
-						: Color.Orange;
-				case JsonMessagePartType.ItemId:
-					return Color.Crimson;
-				case JsonMessagePartType.LocationId:
-					return Color.Aquamarine;
-				default:
-					return Color.White;
-			}
-		}
+		static void SendPacket(ArchipelagoPacketBase packet) => session?.Socket?.SendPacket(packet);
 
-		public static void UpdateChecks(ItemLocationMap itemLocationMap)
-		{
+		public static void Say(string message) => SendPacket(new SayPacket { Text = message });
+
+		static bool IsMe(int slot) => slot == session.ConnectionInfo.Slot;
+
+		public static void UpdateChecks(ItemLocationMap itemLocationMap) => 
 			Task.Factory.StartNew(() => { UpdateChecksTask(itemLocationMap); });
-		}
 
 		static void UpdateChecksTask(ItemLocationMap itemLocationMap)
 		{
 			var locations = itemLocationMap
-				.Where(l => l.IsPickedUp && !(l is ExteralItemLocation))
+				.Where(l => l.IsPickedUp && !(l is ExternalItemLocation))
 				.Select(l => LocationMap.GetLocationId(l.Key))
 				.ToArray();
 
@@ -253,7 +152,7 @@ namespace TsRandomizer.Archipelago
 			if (IsConnected && session.Socket.Connected)
 				return;
 
-			Connect(serverUrl, userName, password, uuid);
+			Connect(serverUrl, userName, password, session.ConnectionInfo.Uuid);
 		}
 	}
 }

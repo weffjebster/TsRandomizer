@@ -8,12 +8,14 @@ using Microsoft.Xna.Framework.Input;
 using Timespinner.GameAbstractions;
 using Timespinner.GameAbstractions.Saving;
 using Timespinner.GameStateManagement.ScreenManager;
+using TsRandomizer.Commands;
 using TsRandomizer.Drawables;
 using TsRandomizer.Extensions;
 using TsRandomizer.IntermediateObjects;
 using TsRandomizer.Randomisation;
 using TsRandomizer.Screens.Menu;
 using TsRandomizer.Screens.SeedSelection;
+using TsRandomizer.Settings;
 
 namespace TsRandomizer.Screens
 {
@@ -30,11 +32,10 @@ namespace TsRandomizer.Screens
 		readonly SeedRepresentation seedRepresentation;
 
 		Seed? seed;
-		FillingMethod fillingmethod;
+		FillingMethod fillingMethod;
+		SettingCollection settings;
 
 		Action<GameSave> onDifficultSelected;
-
-		bool isArchipelago;
 
 		Action<GameSave.EGameDifficultyType> originalOnDifficultyChosenMethod;
 
@@ -42,10 +43,13 @@ namespace TsRandomizer.Screens
 		{
 			UpdateHardModeDifficulties();
 
-			DisableDefaultDifficultOptions();
+			if (ConnectCommand.IsWaitingForDifficulty)
+				fillingMethod = FillingMethod.Archipelago;
+			else
+				DisableDefaultDifficultOptions();
 
 			seedMenuEntry = GetSelectSeedMenu();
-			AddMenuEntryAtIndex(0, seedMenuEntry); 
+			AddMenuEntryAtIndex(0, seedMenuEntry);
 
 			seedRepresentation = new SeedRepresentation(ScreenManager.Dynamic.GCM);
 
@@ -72,7 +76,15 @@ namespace TsRandomizer.Screens
 
 		public override void Initialize(ItemLocationMap itemLocationMap, GCM gameContentManager)
 		{
-			SetSelectedMenuItemByIndex(0);
+			if (!ConnectCommand.IsWaitingForDifficulty)
+				SetSelectedMenuItemByIndex(0);
+			else
+			{
+				SetSeedAndFillingMethod(ConnectCommand.Seed, FillingMethod.Archipelago, ConnectCommand.Settings);
+				HookOnDifficultySelected(ConnectCommand.OnDifficultySelectedHook);
+
+				ConnectCommand.IsWaitingForDifficulty = false;
+			}
 		}
 
 		void AddMenuEntry(MenuEntry menuEntry)
@@ -117,7 +129,7 @@ namespace TsRandomizer.Screens
 		void OpenSelectSeedMenu(PlayerIndex pi)
 		{
 			GameScreen screen;
-			if (isArchipelago)
+			if (fillingMethod == FillingMethod.Archipelago)
 				screen = ArchipelagoSelectionScreen.Create(ScreenManager);
 			else
 				screen = SeedSelectionMenuScreen.Create(ScreenManager);
@@ -155,15 +167,20 @@ namespace TsRandomizer.Screens
 		void AddSeedAndFillingMethodToSelectedSave(GameSave saveGame)
 		{
 			saveGame.SetSeed(seed.Value);
-			saveGame.SetFillingMethod(fillingmethod);
+			saveGame.SetFillingMethod(fillingMethod);
+			saveGame.SetSettings(settings);
 
 			saveGame.DataKeyStrings["TsRandomizerVersion"] = Assembly.GetExecutingAssembly().GetName().Version.ToString();
 		}
 
-		public void SetSeedAndFillingMethod(Seed selectedSeed, FillingMethod choosenFillingMethod)
+		public void SetSeedAndFillingMethod(Seed selectedSeed, FillingMethod choosenFillingMethod, SettingCollection selectedSettings)
 		{
 			seed = selectedSeed;
-			fillingmethod = choosenFillingMethod;
+			fillingMethod = choosenFillingMethod;
+			settings = selectedSettings;
+
+			if (selectedSeed.Options.Tournament)
+				settings.EnforceTournamentSettings();
 
 			seedRepresentation.SetSeed(selectedSeed);
 
@@ -172,10 +189,8 @@ namespace TsRandomizer.Screens
 			EnableAllMenuItems();
 		}
 
-		public void HookOnDifficultySelected(Action<GameSave> onDifficultSelectedHook)
-		{
+		public void HookOnDifficultySelected(Action<GameSave> onDifficultSelectedHook) => 
 			onDifficultSelected = onDifficultSelectedHook;
-		}
 
 		void EnableAllMenuItems()
 		{
@@ -207,11 +222,14 @@ namespace TsRandomizer.Screens
 				    || input.IsNewKeyPress(Keys.Left)
 				    || input.IsNewKeyPress(Keys.Right))
 				{
-					isArchipelago = !isArchipelago;
+					if (fillingMethod == FillingMethod.Archipelago)
+						fillingMethod = FillingMethod.Random;
+					else
+						fillingMethod = FillingMethod.Archipelago;
 				}
 			}
 
-			if (isArchipelago)
+			if (fillingMethod == FillingMethod.Archipelago)
 			{
 				seedMenuEntry.Text = "<< Archipelago >>";
 				seedMenuEntry.Description = "Connect to an Archipelago Multiworld server";

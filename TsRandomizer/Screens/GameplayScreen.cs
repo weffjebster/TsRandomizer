@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Reflection;
-using Archipelago.MultiClient.Net.BounceFeatures.DeathLink;
 using Archipelago.MultiClient.Net.Enums;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -11,11 +10,13 @@ using Timespinner.GameAbstractions.Gameplay;
 using Timespinner.GameAbstractions.Saving;
 using Timespinner.GameStateManagement.ScreenManager;
 using TsRandomizer.Archipelago;
+using TsRandomizer.Commands;
 using TsRandomizer.Extensions;
 using TsRandomizer.IntermediateObjects;
 using TsRandomizer.ItemTracker;
 using TsRandomizer.LevelObjects;
 using TsRandomizer.Randomisation;
+using TsRandomizer.Settings;
 
 namespace TsRandomizer.Screens
 {
@@ -33,6 +34,9 @@ namespace TsRandomizer.Screens
 		RoomSpecification currentRoom;
 		SeedOptions seedOptions;
 
+		public SettingCollection Settings;
+
+		public GameSave Save => (GameSave)Dynamic.SaveFile;
 		Level Level => (Level)Dynamic._level;
 		dynamic LevelReflected => Level.AsDynamic();
 
@@ -40,7 +44,7 @@ namespace TsRandomizer.Screens
 
 		public GCM GameContentManager { get; private set; }
 
-		DeathLinker deathLinkService;
+		public DeathLinker deathLinkService;
 
 		public GameplayScreen(ScreenManager screenManager, GameScreen screen) : base(screenManager, screen)
 		{
@@ -50,16 +54,21 @@ namespace TsRandomizer.Screens
 		{
 			GameContentManager = gameContentManager;
 
-			var saveFile = (GameSave)Dynamic.SaveFile;
+			var saveFile = Save;
 			var seed = saveFile.GetSeed();
 			var fillingMethod = saveFile.GetFillingMethod();
+			var settings = saveFile.GetSettings();
 
-			if(!seed.HasValue)
+			ScreenManager.Log.SetSettings(settings);
+			gameContentManager.UpdateMinimapColors(settings);
+
+			if (!seed.HasValue)
 				seed = Seed.Zero;
 
 			Console.Out.WriteLine($"Seed: {seed}");
 
 			seedOptions = seed.Value.Options;
+			Settings = settings;
 
 			try
 			{
@@ -78,6 +87,7 @@ namespace TsRandomizer.Screens
 			LevelReflected._random = new DeRandomizer(LevelReflected._random, seed.Value);
 
 			ItemManipulator.Initialize(ItemLocations);
+<<<<<<< HEAD
 			if(seed.Value.Options.DamageRando)
             {
 				OrbDamageManager.PopulateOrbLookups(Level.GameSave);
@@ -85,14 +95,31 @@ namespace TsRandomizer.Screens
 				var whom = ElementManager.OrbElementLookup;
 			}
 				
+=======
+
+			if (settings.DamageRando.Value != "Off")
+				OrbDamageManager.PopulateOrbLookups(Level.GameSave, settings.DamageRando.Value, settings.DamageRandoOverrides.Value);
+
+			BestiaryManager.UpdateBestiary(Level, settings);
+			if (!saveFile.GetSaveBool("IsFightingBoss"))
+				BestiaryManager.RefreshBossSaveFlags(Level);
+>>>>>>> master
 
 			if (seedOptions.Archipelago)
 			{
 				Client.SetStatus(ArchipelagoClientState.ClientPlaying);
 
-				if (seedOptions.DeathLink)
-					deathLinkService = new DeathLinker(Client.GetDeathLinkService());
+				var service = Client.GetDeathLinkService();
+				deathLinkService = new DeathLinker(settings, service);
+				ScreenManager.Console.AddCommand(new ToggleDeathLinkCommand(service, () => Level));
 			}
+
+#if DEBUG
+			ScreenManager.Console.AddCommand(new TeleportCommand(() => Level));
+			ScreenManager.Console.AddCommand(new GiveRelicCommand(() => Level));
+			ScreenManager.Console.AddCommand(new GiveOrbCommand(() => Level));
+			ScreenManager.Console.AddCommand(new GiveFamiliarCommand(() => Level));
+#endif
 		}
 
 		void SendBackToMainMenu(string message)
@@ -101,7 +128,7 @@ namespace TsRandomizer.Screens
 
 			var titleBackgroundScreen = (GameScreen)TitleBackgroundScreenType.CreateInstance(false, true);
 
-			LoadingScreenLoadMethod.InvokeStatic(ScreenManager, false, new PlayerIndex?(), new [] { titleBackgroundScreen });
+			LoadingScreenLoadMethod.InvokeStatic(ScreenManager, false, new PlayerIndex?(), new[] { titleBackgroundScreen });
 
 			var messageBox = MessageBox.Create(ScreenManager, message);
 
@@ -113,23 +140,24 @@ namespace TsRandomizer.Screens
 			if (ItemLocations == null)
 				return;
 
-			LevelObject.Update(Level, this, ItemLocations, IsRoomChanged(), seedOptions, ScreenManager);
+			LevelObject.Update(Level, this, ItemLocations, IsRoomChanged(), seedOptions, Settings, ScreenManager);
 
 			FamiliarManager.Update(Level);
 
-			if (seedOptions.DeathLink && deathLinkService != null)
-				deathLinkService.Update(Level, ScreenManager);
+			deathLinkService?.Update(Level, ScreenManager);
 
 #if DEBUG
 			TimespinnerAfterDark(input);
 #endif
 		}
 
+#if DEBUG
 		public override void Draw(SpriteBatch spriteBatch, SpriteFont menuFont)
 		{
+
 			if (ItemLocations == null || currentRoom == null)
 				return;
-#if DEBUG
+
 			var levelId = LevelReflected._id;
 			var text = $"Level: {levelId}, Room ID: {currentRoom.ID}";
 
@@ -137,13 +165,10 @@ namespace TsRandomizer.Screens
 
 			using (spriteBatch.BeginUsing(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp))
 				spriteBatch.DrawString(menuFont, text, new Vector2(30, 130), Color.Red, inGameZoom);
+		}
 #endif
-		}
 
-		public void HideItemPickupBar()
-		{
-			((object)Dynamic._itemGetBanner).AsDynamic()._displayTimer = 3;
-		}
+		public void HideItemPickupBar() => ((object)Dynamic._itemGetBanner).AsDynamic()._displayTimer = 3;
 
 		bool IsRoomChanged()
 		{

@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Reflection;
 using Newtonsoft.Json.Linq;
 using TsRandomizer.Randomisation;
+using TsRandomizer.Settings;
 
 namespace TsRandomizer.Archipelago
 {
@@ -17,16 +18,14 @@ namespace TsRandomizer.Archipelago
 			this.seedString = seedString;
 		}
 
-		public Requirement GetPyramidKeysGate()
-		{
-			return GetPyramidKeysGate((string)slotData["PyramidKeysGate"]);
-		}
+		public Requirement GetPyramidKeysGate() =>
+			 GetPyramidKeysGate((string)slotData["PyramidKeysGate"]);
 
 		public static Requirement GetPyramidKeysGate(string pyramidKeysGate)
 		{
 			//TODO: remove when clients & server are update with correct value
-			if (pyramidKeysGate == "GateMilitaryGate")
-				return Requirement.GateMilitairyGate;
+			if (pyramidKeysGate == "GateMilitairyGate")
+				return Requirement.GateMilitaryGate;
 			if (pyramidKeysGate == "GateLakeSirineLeft")
 				return Requirement.GateLakeSereneLeft;
 			if (pyramidKeysGate == "GateLakeSirineRight")
@@ -47,9 +46,10 @@ namespace TsRandomizer.Archipelago
 			return new Seed(seedId, new SeedOptions(slotData));
 		}
 
-		public Dictionary<int, int> GetPersonalItems()
-		{
-			return ((JObject)slotData["PersonalItems"]).ToObject<Dictionary<int, int>>();
-		}
+		public SettingCollection GetSettings() =>
+			GameSettingsLoader.LoadSettingsFromSlotData(slotData);
+
+		public Dictionary<int, int> GetPersonalItems() => 
+			((JObject)slotData["PersonalItems"]).ToObject<Dictionary<int, int>>();
 	}
 }

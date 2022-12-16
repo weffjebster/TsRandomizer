@@ -39,16 +39,21 @@ namespace TsRandomizer
 					.GetValue(null);
 
 				var stringInstances = (Dictionary<string, StringInstance>) stringLibrary.AsDynamic()._stringInstances;
+				if (!stringInstances.ContainsKey(key))
+				{
+					stringInstances.Add(key, new StringInstance() { Key = key, Text = value });
+				}
 
 				stringInstances[key].Text = value;
 			}
-			catch
+			catch(Exception ex)
 			{
+				Console.WriteLine("Error replacing text: " + ex.Message);
 			}
 		}
 
 		public void ResetStrings()
-        {
+		{
 			Type ELanguageLocale = 
 				TimeSpinnerType.Get("Timespinner.Core.Localization.ELanguageLocale");
 			var currentLocale = 

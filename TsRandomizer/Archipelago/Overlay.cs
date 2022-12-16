@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Timespinner.GameStateManagement.ScreenManager;
 
 namespace TsRandomizer.Archipelago
 {
@@ -8,18 +9,15 @@ namespace TsRandomizer.Archipelago
 	{
 		static readonly List<Overlay> Overlays = new List<Overlay>();	
 
-		protected static void Add(Overlay overlay)
-		{
-			Overlays.Add(overlay);
-		}
+		protected static void Add(Overlay overlay) => Overlays.Add(overlay);
 
-		public static void UpdateAll(GameTime gameTime)
+		public static void UpdateAll(GameTime gameTime, InputState input)
 		{
 			foreach (var overlay in Overlays)
-				overlay.Update(gameTime);
+				overlay.Update(gameTime, input);
 		}
 
-		public virtual void Update(GameTime gameTime)
+		public virtual void Update(GameTime gameTime, InputState input)
 		{
 		}
 

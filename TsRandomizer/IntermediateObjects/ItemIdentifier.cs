@@ -7,6 +7,14 @@ using TsRandomizer.Extensions;
 
 namespace TsRandomizer.IntermediateObjects
 {
+	public enum ELootTier
+	{
+		Trash = 16,
+		Common = 10,
+		Uncommon = 6,
+		Rare = 3,
+		UltraRare = 2,
+	}
 	public class ItemIdentifier : IEquatable<ItemIdentifier>
 	{
 		public LootType LootType { get; }
@@ -15,7 +23,7 @@ namespace TsRandomizer.IntermediateObjects
 
 		public EInventoryUseItemType UseItem => (EInventoryUseItemType)ItemId;
 		public EInventoryRelicType Relic => (EInventoryRelicType)ItemId;
-		public EInventoryEquipmentType Enquipment => (EInventoryEquipmentType)ItemId;
+		public EInventoryEquipmentType Equipment => (EInventoryEquipmentType)ItemId;
 		public EInventoryFamiliarType Familiar => (EInventoryFamiliarType)ItemId;
 		public EInventoryOrbType OrbType => (EInventoryOrbType)ItemId;
 		public EOrbSlot OrbSlot => (EOrbSlot)SubItemId;
@@ -24,8 +32,8 @@ namespace TsRandomizer.IntermediateObjects
 		static readonly MethodInfo GetIconFromUseItemMethod;
 		static readonly MethodInfo GetIconFromOrbMethod;
 		static readonly MethodInfo GetIconFromRelicMethod;
-		static readonly MethodInfo GetIconFromEnquipmentMethod;
-		static readonly MethodInfo GetIconFromFamilierMethod;
+		static readonly MethodInfo GetIconFromEquipmentMethod;
+		static readonly MethodInfo GetIconFromFamiliarMethod;
 
 		static ItemIdentifier()
 		{
@@ -33,8 +41,8 @@ namespace TsRandomizer.IntermediateObjects
 			GetIconFromUseItemMethod = inventoryItemType.GetPrivateStaticMethod("GetIconFromItem", typeof(EInventoryUseItemType));
 			GetIconFromOrbMethod = inventoryItemType.GetPrivateStaticMethod("GetIconFromItem", typeof(EInventoryOrbType), typeof(EOrbSlot));
 			GetIconFromRelicMethod = inventoryItemType.GetPrivateStaticMethod("GetIconFromItem", typeof(EInventoryRelicType));
-			GetIconFromEnquipmentMethod = inventoryItemType.GetPrivateStaticMethod("GetIconFromItem", typeof(EInventoryEquipmentType));
-			GetIconFromFamilierMethod = inventoryItemType.GetPrivateStaticMethod("GetIconFromItem", typeof(EInventoryFamiliarType));
+			GetIconFromEquipmentMethod = inventoryItemType.GetPrivateStaticMethod("GetIconFromItem", typeof(EInventoryEquipmentType));
+			GetIconFromFamiliarMethod = inventoryItemType.GetPrivateStaticMethod("GetIconFromItem", typeof(EInventoryFamiliarType));
 		}
 
 		public ItemIdentifier(EInventoryUseItemType useItem)
@@ -81,9 +89,9 @@ namespace TsRandomizer.IntermediateObjects
 				case LootType.ConstOrb:
 					return (int)GetIconFromOrbMethod.InvokeStatic(OrbType, OrbSlot) - 1;
 				case LootType.ConstEquipment:
-					return (int)GetIconFromEnquipmentMethod.InvokeStatic(Enquipment) - 1;
+					return (int)GetIconFromEquipmentMethod.InvokeStatic(Equipment) - 1;
 				case LootType.ConstFamiliar:
-					return (int)GetIconFromFamilierMethod.InvokeStatic(Familiar) - 1;
+					return (int)GetIconFromFamiliarMethod.InvokeStatic(Familiar) - 1;
 				case LootType.ConstRelic:
 					return (int)GetIconFromRelicMethod.InvokeStatic(Relic) - 1;
 				case LootType.ConstStat:
@@ -155,15 +163,25 @@ namespace TsRandomizer.IntermediateObjects
 			switch (LootType)
 			{
 				case LootType.ConstEquipment:
-					return Enquipment.ToString();
+					return TimeSpinnerGame.Localizer.Get($"inv_eq_{Equipment}");
 				case LootType.ConstFamiliar:
-					return Familiar.ToString();
-				case LootType.ConstOrb:
-					return $"{OrbSlot}{OrbType}";
+					return TimeSpinnerGame.Localizer.Get($"inv_fam_{Familiar}");
 				case LootType.ConstRelic:
-					return Relic.ToString();
+					return TimeSpinnerGame.Localizer.Get($"inv_rel_{Relic}");
 				case LootType.ConstUseItem:
-					return UseItem.ToString();
+					return TimeSpinnerGame.Localizer.Get($"inv_use_{UseItem}");
+				case LootType.ConstOrb:
+					switch (OrbSlot)
+					{
+						case EOrbSlot.Melee:
+							return TimeSpinnerGame.Localizer.Get($"inv_orb_{OrbType}");
+						case EOrbSlot.Spell:
+							return TimeSpinnerGame.Localizer.Get($"inv_orb_{OrbType}_spell");
+						case EOrbSlot.Passive:
+							return TimeSpinnerGame.Localizer.Get($"inv_orb_{OrbType}_passive");
+						default:
+							throw new NotImplementedException($"Loottype {OrbSlot}.ToString() isnt implemented");
+					}
 				case LootType.ConstStat:
 					return Stat.ToString();
 				default:
